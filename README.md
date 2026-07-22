@@ -1,65 +1,79 @@
 # AI Support Agent RAG
 
-## 1. Problem
+Production-style AI support agent using Retrieval-Augmented Generation (RAG) for customer support workflows.
 
-Many companies have support documents, FAQs, policies, and internal knowledge, but customers still ask repetitive questions. Human support teams waste time answering the same things again and again.
+This repository is intentionally documentation-first at this stage. Application code will be added after the architecture, data model, API boundaries, and system decisions are clear.
 
-## 2. Solution
+## Project Goals
 
-AI Support Agent RAG is a production-style AI support system that allows an organization to upload documents and provide AI-powered answers with citations.
+- Ingest organization support documents, FAQs, policies, and internal knowledge.
+- Generate grounded AI answers with citations.
+- Support multi-turn conversations and escalation to human agents.
+- Provide an admin experience for managing knowledge sources and reviewing usage.
+- Use a production-minded backend, worker, database, cache, and frontend architecture.
 
-## 3. Key Features
+## Tech Stack
 
-- User authentication
-- Organization/workspace support
-- Document upload
-- Document chunking and embedding
-- RAG-based question answering
-- Answer citations
+- Backend API: FastAPI
+- Frontend: Next.js
+- Database: PostgreSQL
+- Vector Search: pgvector
+- Cache and Broker: Redis
+- Background Jobs: Celery
+- Agent Orchestration: LangGraph
+- Deployment: Docker and Docker Compose
+
+## Planned Capabilities
+
+- User authentication and organization workspaces
+- Document upload and source management
+- Text extraction, chunking, embedding, and indexing
+- Semantic search over support knowledge
+- RAG answer generation with source citations
 - Conversation history
-- Human escalation
+- Human escalation workflow
 - Admin dashboard
-- Dockerized deployment
+- Background ingestion pipeline
+- Observability, evaluation, and usage reporting
 
-## 4. Tech Stack
+## Documentation
 
-- FastAPI
-- PostgreSQL
-- pgvector
-- Redis
-- Celery
-- LangGraph
-- Next.js
-- Docker
+- [Architecture](docs/architecture.md)
+- [Database Schema](docs/database-schema.md)
+- [API Design](docs/api-design.md)
+- [System Design Decisions](docs/system-design-decisions.md)
 
-## 5. Architecture
+## Repository Structure
 
-Architecture diagram will be added here.
+```text
+.
+├── README.md
+└── docs/
+    ├── architecture.md
+    ├── api-design.md
+    ├── database-schema.md
+    └── system-design-decisions.md
+```
 
-## 6. Database Design
+## Current Status
 
-Database schema will be added here.
+This project is in the planning and documentation stage.
 
-## 7. API Design
+No application code has been added yet.
 
-Main API endpoints will be documented here.
+## Local Setup
 
-## 8. System Design Decisions
+Setup instructions will be added once the backend, frontend, worker, and infrastructure folders are introduced.
 
-This section explains why specific engineering choices were made.
+## Demo
 
-## 9. Local Setup
+Demo instructions, screenshots, and deployment links will be added after the first usable implementation.
 
-Instructions will be added here.
+## Future Improvements
 
-## 10. Demo
-
-Live demo and video demo will be added here.
-
-## 11. Future Improvements
-
-- Multi-channel support
-- Slack/WhatsApp integration
-- Advanced analytics
+- Slack, WhatsApp, and website widget integrations
 - RAG evaluation dashboard
 - Billing and usage limits
+- Role-based access control
+- Advanced analytics for support teams
+- Multi-region deployment strategy
