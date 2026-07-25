@@ -39,7 +39,14 @@ Expected response:
 ## Migrations
 
 ```powershell
-alembic revision --autogenerate -m "initial"
-alembic upgrade head
+.\.venv\Scripts\python.exe -m alembic upgrade head
 ```
+
+Start the local pgvector database from the repository root before migrating:
+
+```powershell
+docker compose up -d postgres
+```
+
+The first migration creates the multi-tenant application tables, enables PostgreSQL `vector`, and creates an HNSW cosine-similarity index for document chunk embeddings.
 

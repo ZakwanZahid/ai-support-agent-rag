@@ -1,4 +1,8 @@
-# System Design Decisions
+# System Design Decisions (Moved)
+
+The current ADR-style decisions are in [06-decisions.md](06-decisions.md).
+
+---
 
 ## Overview
 

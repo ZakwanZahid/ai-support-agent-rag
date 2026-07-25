@@ -1,10 +1,14 @@
-# Database Schema
+# Database Schema (Moved)
+
+The current database schema reference is [03-database-schema.md](03-database-schema.md).
+
+---
 
 ## Overview
 
 PostgreSQL will store relational application data and pgvector embeddings. The schema should support multi-tenant organizations, document ingestion, conversation history, citations, and human escalation.
 
-This document is a planning skeleton. Table names, columns, constraints, and indexes will be finalized before migrations are created.
+The initial backend migration creates the first version of these core tables. The schema should still evolve as auth, ingestion, retrieval, and retention decisions are finalized.
 
 ## Core Entities
 
