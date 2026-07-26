@@ -14,3 +14,6 @@ def health_check() -> HealthResponse:
         environment=settings.app_env,
     )
 
+@router.get("/")
+def root():
+    return {"message": "Welcome to the API. Please use the /health endpoint to check the health of the service."}
