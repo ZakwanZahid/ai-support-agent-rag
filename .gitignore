@@ -18,6 +18,7 @@ venv/
 *.sqlite3
 *.db
 *.log
+storage/uploads/
 
 # Node / frontend
 node_modules/

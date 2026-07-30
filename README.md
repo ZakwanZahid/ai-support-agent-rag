@@ -41,6 +41,7 @@ This repository now includes the initial FastAPI backend and a multi-tenant Post
 - [Architecture](docs/architecture.md)
 - [Database Schema](docs/03-database-schema.md)
 - [Authentication and Tenancy](docs/04-auth-tenancy.md)
+- [Knowledge Bases and Document Uploads](docs/05-document-upload.md)
 - [API Design](docs/api-design.md)
 - [System Design Decisions](docs/06-decisions.md)
 
@@ -72,8 +73,9 @@ This project has the first backend foundation in place:
 - SQLAlchemy models and initial Alembic migration for the multi-tenant schema
 - PostgreSQL + pgvector Docker Compose setup
 - JWT authentication, current-user resolution, and organization membership enforcement
+- Organization-scoped knowledge-base APIs and pending document uploads
 
-Document ingestion, retrieval, AI generation, frontend, and workers are still pending.
+Document extraction, chunking, embeddings, retrieval, AI generation, frontend, and workers are still pending.
 
 ## Database Schema
 
@@ -111,6 +113,12 @@ Available endpoints:
 - `POST /api/v1/organizations`
 - `GET /api/v1/organizations`
 - `GET /api/v1/organizations/{organization_id}`
+- `POST /api/v1/organizations/{organization_id}/knowledge-bases`
+- `GET /api/v1/organizations/{organization_id}/knowledge-bases`
+- `GET /api/v1/organizations/{organization_id}/knowledge-bases/{knowledge_base_id}`
+- `POST /api/v1/organizations/{organization_id}/knowledge-bases/{knowledge_base_id}/documents/upload`
+- `GET /api/v1/organizations/{organization_id}/documents`
+- `GET /api/v1/organizations/{organization_id}/documents/{document_id}`
 
 Register:
 
@@ -134,6 +142,26 @@ Use the returned access token in protected requests:
 curl.exe http://127.0.0.1:8000/api/v1/auth/me `
   -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
 ```
+
+Create a knowledge base:
+
+```powershell
+curl.exe -X POST http://127.0.0.1:8000/api/v1/organizations/ORGANIZATION_ID/knowledge-bases `
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN" `
+  -H "Content-Type: application/json" `
+  -d '{"name":"Product Docs","description":"Product support documents"}'
+```
+
+Upload a document:
+
+```powershell
+curl.exe -X POST http://127.0.0.1:8000/api/v1/organizations/ORGANIZATION_ID/knowledge-bases/KNOWLEDGE_BASE_ID/documents/upload `
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN" `
+  -F "title=Getting Started" `
+  -F "file=@C:\path\to\getting-started.txt;type=text/plain"
+```
+
+Uploads create a `pending` document. Future background ingestion changes it to `processing`, then `indexed` or `failed`. Files are stored under `storage/uploads/{organization_id}/{knowledge_base_id}/`.
 
 Run tests from `backend/`:
 

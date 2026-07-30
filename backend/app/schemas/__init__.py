@@ -1,5 +1,7 @@
 
 from app.schemas.auth import TokenResponse, UserLogin, UserRegister, UserResponse
+from app.schemas.document import DocumentResponse
+from app.schemas.knowledge_base import KnowledgeBaseCreate, KnowledgeBaseResponse
 from app.schemas.organization import (
     OrganizationCreate,
     OrganizationMemberResponse,
@@ -10,6 +12,9 @@ __all__ = [
     "OrganizationCreate",
     "OrganizationMemberResponse",
     "OrganizationResponse",
+    "DocumentResponse",
+    "KnowledgeBaseCreate",
+    "KnowledgeBaseResponse",
     "TokenResponse",
     "UserLogin",
     "UserRegister",
