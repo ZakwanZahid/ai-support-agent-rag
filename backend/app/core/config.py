@@ -13,6 +13,9 @@ class Settings(BaseSettings):
         default="postgresql+psycopg://postgres:postgres@localhost:5432/ai_support_agent_rag",
         alias="DATABASE_URL",
     )
+    jwt_secret_key: str = Field(default="change-me-in-development", alias="JWT_SECRET_KEY")
+    jwt_algorithm: str = Field(default="HS256", alias="JWT_ALGORITHM")
+    access_token_expire_minutes: int = Field(default=60, alias="ACCESS_TOKEN_EXPIRE_MINUTES", gt=0)
 
     model_config = SettingsConfigDict(
         env_file=".env",

@@ -40,6 +40,7 @@ This repository now includes the initial FastAPI backend and a multi-tenant Post
 
 - [Architecture](docs/architecture.md)
 - [Database Schema](docs/03-database-schema.md)
+- [Authentication and Tenancy](docs/04-auth-tenancy.md)
 - [API Design](docs/api-design.md)
 - [System Design Decisions](docs/06-decisions.md)
 
@@ -70,8 +71,9 @@ This project has the first backend foundation in place:
 - SQLAlchemy session setup
 - SQLAlchemy models and initial Alembic migration for the multi-tenant schema
 - PostgreSQL + pgvector Docker Compose setup
+- JWT authentication, current-user resolution, and organization membership enforcement
 
-Auth, document ingestion, retrieval, AI generation, frontend, and workers are still pending.
+Document ingestion, retrieval, AI generation, frontend, and workers are still pending.
 
 ## Database Schema
 
@@ -89,6 +91,54 @@ Run migrations from `backend/`:
 ```powershell
 Copy-Item .env.example .env
 .\.venv\Scripts\python.exe -m alembic upgrade head
+```
+
+## Authentication
+
+Required authentication settings:
+
+```env
+JWT_SECRET_KEY=change-me-in-development
+JWT_ALGORITHM=HS256
+ACCESS_TOKEN_EXPIRE_MINUTES=60
+```
+
+Available endpoints:
+
+- `POST /api/v1/auth/register`
+- `POST /api/v1/auth/login`
+- `GET /api/v1/auth/me`
+- `POST /api/v1/organizations`
+- `GET /api/v1/organizations`
+- `GET /api/v1/organizations/{organization_id}`
+
+Register:
+
+```powershell
+curl.exe -X POST http://127.0.0.1:8000/api/v1/auth/register `
+  -H "Content-Type: application/json" `
+  -d '{"email":"user@example.com","password":"strongpassword","full_name":"User Name"}'
+```
+
+Login:
+
+```powershell
+curl.exe -X POST http://127.0.0.1:8000/api/v1/auth/login `
+  -H "Content-Type: application/json" `
+  -d '{"email":"user@example.com","password":"strongpassword"}'
+```
+
+Use the returned access token in protected requests:
+
+```powershell
+curl.exe http://127.0.0.1:8000/api/v1/auth/me `
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
+```
+
+Run tests from `backend/`:
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest
 ```
 
 ## Local Setup
