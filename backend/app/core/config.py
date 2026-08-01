@@ -22,11 +22,20 @@ class Settings(BaseSettings):
     auto_ingest_on_upload: bool = Field(default=True, alias="AUTO_INGEST_ON_UPLOAD")
     chunk_size: int = Field(default=1200, alias="CHUNK_SIZE", gt=0)
     chunk_overlap: int = Field(default=200, alias="CHUNK_OVERLAP", ge=0)
+    openai_api_key: str | None = Field(default=None, alias="OPENAI_API_KEY")
+    embedding_provider: str = Field(default="openai", alias="EMBEDDING_PROVIDER")
+    embedding_model: str = Field(
+        default="text-embedding-3-small",
+        alias="EMBEDDING_MODEL",
+    )
+    embedding_dimensions: int = Field(default=1536, alias="EMBEDDING_DIMENSIONS", gt=0)
+    index_batch_size: int = Field(default=50, alias="INDEX_BATCH_SIZE", gt=0)
 
     @model_validator(mode="after")
     def validate_chunk_settings(self) -> "Settings":
         if self.chunk_overlap >= self.chunk_size:
             raise ValueError("CHUNK_OVERLAP must be smaller than CHUNK_SIZE")
+        self.embedding_provider = self.embedding_provider.strip().lower()
         return self
 
     model_config = SettingsConfigDict(

@@ -6,8 +6,14 @@ from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from app.api.deps import get_db, get_ingestion_runner
+from app.api.deps import (
+    get_db,
+    get_indexing_runner,
+    get_ingestion_runner,
+    get_request_embedding_provider,
+)
 from app.core.config import settings
+from app.embeddings.indexing import index_document
 from app.main import app
 from app.models.base import Base
 from app.ingestion.pipeline import ingest_document
@@ -16,6 +22,25 @@ from app.models.knowledge_base import KnowledgeBase
 from app.models.organization import Organization, OrganizationMember
 from app.models.user import User
 from app.models.types import Vector
+
+
+class FakeEmbeddingProvider:
+    def embed_texts(self, texts: list[str]) -> list[list[float]]:
+        return [self._embedding(text) for text in texts]
+
+    def embed_query(self, query: str) -> list[float]:
+        return self._embedding(query)
+
+    @staticmethod
+    def _embedding(text: str) -> list[float]:
+        normalized = text.lower()
+        embedding = [0.0] * settings.embedding_dimensions
+        embedding[0] = 1.0 if "refund" in normalized else 0.0
+        embedding[1] = 1.0 if "shipping" in normalized else 0.0
+        embedding[2] = 1.0 if "password" in normalized else 0.0
+        if not any(embedding[:3]):
+            embedding[3] = 1.0
+        return embedding
 
 
 @compiles(JSONB, "sqlite")
@@ -62,11 +87,15 @@ def temporary_upload_directory(tmp_path):
     original_auto_ingest = settings.auto_ingest_on_upload
     original_chunk_size = settings.chunk_size
     original_chunk_overlap = settings.chunk_overlap
+    original_embedding_dimensions = settings.embedding_dimensions
+    original_index_batch_size = settings.index_batch_size
     settings.upload_dir = tmp_path / "uploads"
     settings.max_upload_size_mb = 10
     settings.auto_ingest_on_upload = False
     settings.chunk_size = 1200
     settings.chunk_overlap = 200
+    settings.embedding_dimensions = 1536
+    settings.index_batch_size = 50
     try:
         yield
     finally:
@@ -75,6 +104,8 @@ def temporary_upload_directory(tmp_path):
         settings.auto_ingest_on_upload = original_auto_ingest
         settings.chunk_size = original_chunk_size
         settings.chunk_overlap = original_chunk_overlap
+        settings.embedding_dimensions = original_embedding_dimensions
+        settings.index_batch_size = original_index_batch_size
 
 
 @pytest.fixture
@@ -90,8 +121,24 @@ def client(db: Session) -> TestClient:
             session_factory=TestingSessionLocal,
         )
 
+    def get_fake_embedding_provider():
+        return FakeEmbeddingProvider()
+
+    def run_indexing_for_test(document_id, organization_id, force=False):
+        index_document(
+            document_id,
+            organization_id,
+            force,
+            session_factory=TestingSessionLocal,
+            provider_factory=get_fake_embedding_provider,
+        )
+
     app.dependency_overrides[get_db] = override_get_db
     app.dependency_overrides[get_ingestion_runner] = lambda: run_ingestion_for_test
+    app.dependency_overrides[get_indexing_runner] = lambda: run_indexing_for_test
+    app.dependency_overrides[get_request_embedding_provider] = (
+        get_fake_embedding_provider
+    )
     with TestClient(app) as test_client:
         yield test_client
     app.dependency_overrides.clear()

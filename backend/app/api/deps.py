@@ -10,6 +10,15 @@ from sqlalchemy.orm import Session
 from app.core.security import decode_access_token
 from app.db.session import get_db as session_get_db
 from app.ingestion.pipeline import ingest_document
+from app.embeddings.factory import (
+    UnsupportedEmbeddingProviderError,
+    get_embedding_provider,
+)
+from app.embeddings.indexing import index_document
+from app.embeddings.provider import (
+    EmbeddingConfigurationError,
+    EmbeddingProvider,
+)
 from app.models.organization import Organization, OrganizationMember
 from app.models.user import User
 from app.repositories.organization_repository import OrganizationRepository
@@ -18,6 +27,7 @@ from app.repositories.user_repository import UserRepository
 
 bearer_scheme = HTTPBearer(auto_error=False)
 IngestionRunner = Callable[[uuid.UUID, uuid.UUID, bool], None]
+IndexingRunner = Callable[[uuid.UUID, uuid.UUID, bool], None]
 
 
 def get_db() -> Generator[Session, None, None]:
@@ -26,6 +36,20 @@ def get_db() -> Generator[Session, None, None]:
 
 def get_ingestion_runner() -> IngestionRunner:
     return ingest_document
+
+
+def get_indexing_runner() -> IndexingRunner:
+    return index_document
+
+
+def get_request_embedding_provider() -> EmbeddingProvider:
+    try:
+        return get_embedding_provider()
+    except (EmbeddingConfigurationError, UnsupportedEmbeddingProviderError) as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(exc),
+        )
 
 
 def get_current_user(
