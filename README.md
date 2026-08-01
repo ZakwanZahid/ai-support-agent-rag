@@ -43,6 +43,7 @@ This repository now includes the initial FastAPI backend and a multi-tenant Post
 - [Authentication and Tenancy](docs/04-auth-tenancy.md)
 - [Knowledge Bases and Document Uploads](docs/05-document-upload.md)
 - [Document Ingestion](docs/07-document-ingestion.md)
+- [Embedding Indexing and Search](docs/08-embedding-indexing.md)
 - [API Design](docs/api-design.md)
 - [System Design Decisions](docs/06-decisions.md)
 
@@ -76,8 +77,10 @@ This project has the first backend foundation in place:
 - JWT authentication, current-user resolution, and organization membership enforcement
 - Organization-scoped knowledge-base APIs and pending document uploads
 - Background text extraction and custom document chunking
+- OpenAI embedding indexing through a provider abstraction
+- Tenant-scoped pgvector semantic search
 
-Embeddings, retrieval, AI generation, frontend, and durable workers are still pending.
+RAG answer generation, frontend, and durable workers are still pending.
 
 ## Database Schema
 
@@ -110,6 +113,11 @@ MAX_UPLOAD_SIZE_MB=10
 AUTO_INGEST_ON_UPLOAD=true
 CHUNK_SIZE=1200
 CHUNK_OVERLAP=200
+OPENAI_API_KEY=
+EMBEDDING_PROVIDER=openai
+EMBEDDING_MODEL=text-embedding-3-small
+EMBEDDING_DIMENSIONS=1536
+INDEX_BATCH_SIZE=50
 ```
 
 Available endpoints:
@@ -127,6 +135,8 @@ Available endpoints:
 - `GET /api/v1/organizations/{organization_id}/documents`
 - `GET /api/v1/organizations/{organization_id}/documents/{document_id}`
 - `POST /api/v1/organizations/{organization_id}/documents/{document_id}/ingest`
+- `POST /api/v1/organizations/{organization_id}/documents/{document_id}/index`
+- `POST /api/v1/organizations/{organization_id}/knowledge-bases/{knowledge_base_id}/search`
 
 Register:
 
@@ -191,6 +201,24 @@ Apply the status-constraint migration before testing ingestion:
 cd backend
 .\.venv\Scripts\python.exe -m alembic upgrade head
 ```
+
+Set a valid `OPENAI_API_KEY` in `backend/.env`, then index a processed document:
+
+```powershell
+curl.exe -X POST "http://127.0.0.1:8000/api/v1/organizations/ORGANIZATION_ID/documents/DOCUMENT_ID/index" `
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
+```
+
+Search the indexed knowledge base:
+
+```powershell
+curl.exe -X POST "http://127.0.0.1:8000/api/v1/organizations/ORGANIZATION_ID/knowledge-bases/KNOWLEDGE_BASE_ID/search" `
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN" `
+  -H "Content-Type: application/json" `
+  -d '{"query":"What is the refund policy?","top_k":5}'
+```
+
+The lifecycle is `pending → processing → processed → indexed`, with `failed` used when ingestion or indexing cannot complete. OpenAI credentials are required for indexing and search in the current MVP.
 
 Run tests from `backend/`:
 

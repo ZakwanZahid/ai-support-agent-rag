@@ -47,3 +47,47 @@ The first splitter is a small character-based implementation with overlap and re
 Status: Accepted
 
 Text extraction creates chunks with null embeddings and marks the document processed. Embedding generation is a separate indexing phase that will move documents to indexed. This separates deterministic file processing from model-dependent external calls and allows either phase to be retried independently.
+
+## ADR-009: Provider Abstraction for Embeddings
+
+Status: Accepted
+
+Indexing and search depend on a small provider interface rather than an SDK-specific client. OpenAI is selected through a factory, while Gemini, Cohere, Voyage, or local sentence-transformer adapters can later implement the same contract. This contains provider-specific configuration and API behavior.
+
+## ADR-010: OpenAI text-embedding-3-small for MVP
+
+Status: Accepted
+
+The MVP uses OpenAI `text-embedding-3-small`. It is practical, fast, widely supported, and fits the project's current PostgreSQL vector schema. Provider batching reduces request overhead while explicit dimension validation prevents incompatible vectors from reaching the database.
+
+## ADR-011: Store Embeddings in PostgreSQL pgvector
+
+Status: Accepted
+
+Chunk vectors remain beside tenant IDs, document relationships, metadata, and content in PostgreSQL. pgvector supplies cosine-distance ordering and the existing HNSW index without introducing a separate vector database for the MVP.
+
+## ADR-012: Use 1536-dimensional OpenAI Embeddings for MVP
+
+Status: Accepted
+
+Context:
+
+The `document_chunks` table stores vector embeddings for semantic search. The vector column needs a fixed dimensionality.
+
+Decision:
+
+Use OpenAI `text-embedding-3-small` with 1,536-dimensional embeddings for the MVP.
+
+Reasoning:
+
+It is practical, fast, widely supported, and fits the current pgvector schema. The embedding provider is hidden behind an abstraction so other providers can be added later.
+
+Consequences:
+
+Changing to a model with a different embedding size, such as a 384-dimensional local Sentence Transformer, will require a schema migration and re-indexing all chunks.
+
+## ADR-013: Add Search Before RAG Chat
+
+Status: Accepted
+
+A direct semantic-search endpoint ships before chat answer generation. It exposes chunk ranking, distance, metadata, and tenant filters directly, making retrieval relevance and isolation easier to test before prompts, citations, and model-generated answers add more variables.
