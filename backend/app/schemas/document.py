@@ -19,3 +19,9 @@ class DocumentResponse(BaseModel):
     error_message: str | None
     created_at: datetime
     updated_at: datetime
+
+
+class IngestionScheduledResponse(BaseModel):
+    document_id: uuid.UUID
+    status: str = "processing"
+    message: str = "Document ingestion scheduled"

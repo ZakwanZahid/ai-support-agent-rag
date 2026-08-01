@@ -1,10 +1,27 @@
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Depends,
+    File,
+    Form,
+    HTTPException,
+    Query,
+    UploadFile,
+    status,
+)
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_db, require_organization_member, require_role
+from app.api.deps import (
+    IngestionRunner,
+    get_db,
+    get_ingestion_runner,
+    require_organization_member,
+    require_role,
+)
+from app.core.config import settings
 from app.models.document import Document
 from app.models.organization import OrganizationMember
 from app.schemas.document import DocumentResponse
@@ -31,13 +48,15 @@ owner_or_admin = require_role(["owner", "admin"])
 async def upload_document(
     organization_id: uuid.UUID,
     knowledge_base_id: uuid.UUID,
+    background_tasks: BackgroundTasks,
     db: Annotated[Session, Depends(get_db)],
     _membership: Annotated[OrganizationMember, Depends(owner_or_admin)],
+    ingestion_runner: Annotated[IngestionRunner, Depends(get_ingestion_runner)],
     file: Annotated[UploadFile, File()],
     title: Annotated[str | None, Form()] = None,
 ) -> Document:
     try:
-        return await DocumentService(db).upload(
+        document = await DocumentService(db).upload(
             organization_id=organization_id,
             knowledge_base_id=knowledge_base_id,
             file=file,
@@ -68,6 +87,14 @@ async def upload_document(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Could not store the uploaded document",
         )
+    if settings.auto_ingest_on_upload:
+        background_tasks.add_task(
+            ingestion_runner,
+            document.id,
+            organization_id,
+            False,
+        )
+    return document
 
 
 @router.get("/documents", response_model=list[DocumentResponse])

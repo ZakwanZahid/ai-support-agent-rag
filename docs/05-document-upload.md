@@ -30,11 +30,12 @@ Local storage is an MVP decision that keeps development and portfolio demonstrat
 Uploading creates only the file and its document metadata row:
 
 - `pending`: uploaded and waiting for ingestion
-- `processing`: a future worker is extracting and indexing content
+- `processing`: text extraction and chunk creation are running
+- `processed`: text chunks exist and are waiting for embeddings
 - `indexed`: chunks and embeddings are ready for retrieval
 - `failed`: ingestion stopped and `error_message` explains why
 
-Upload is intentionally separate from ingestion. HTTP requests should finish after durable file and metadata storage; extraction, chunking, and embedding can later run in retryable background jobs without making uploads slow or fragile.
+Upload is intentionally separate from ingestion. HTTP requests finish after durable file and metadata storage, and the current MVP schedules extraction and chunking with FastAPI background tasks. Embedding remains a later phase.
 
 ## Authorization and Isolation
 

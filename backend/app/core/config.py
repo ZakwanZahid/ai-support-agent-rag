@@ -1,7 +1,7 @@
 from functools import lru_cache
 from pathlib import Path
 
-from pydantic import Field
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -19,6 +19,15 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = Field(default=60, alias="ACCESS_TOKEN_EXPIRE_MINUTES", gt=0)
     upload_dir: Path = Field(default=Path("storage/uploads"), alias="UPLOAD_DIR")
     max_upload_size_mb: int = Field(default=10, alias="MAX_UPLOAD_SIZE_MB", gt=0)
+    auto_ingest_on_upload: bool = Field(default=True, alias="AUTO_INGEST_ON_UPLOAD")
+    chunk_size: int = Field(default=1200, alias="CHUNK_SIZE", gt=0)
+    chunk_overlap: int = Field(default=200, alias="CHUNK_OVERLAP", ge=0)
+
+    @model_validator(mode="after")
+    def validate_chunk_settings(self) -> "Settings":
+        if self.chunk_overlap >= self.chunk_size:
+            raise ValueError("CHUNK_OVERLAP must be smaller than CHUNK_SIZE")
+        return self
 
     model_config = SettingsConfigDict(
         env_file=".env",

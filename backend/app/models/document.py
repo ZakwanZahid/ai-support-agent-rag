@@ -20,7 +20,10 @@ class Document(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "documents"
     __table_args__ = (
         CheckConstraint("source_type IN ('upload', 'url', 'manual')", name="document_source_type"),
-        CheckConstraint("status IN ('pending', 'processing', 'indexed', 'failed')", name="document_status"),
+        CheckConstraint(
+            "status IN ('pending', 'processing', 'processed', 'indexed', 'failed')",
+            name="document_status",
+        ),
     )
 
     organization_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("organizations.id", ondelete="CASCADE"), index=True, nullable=False)

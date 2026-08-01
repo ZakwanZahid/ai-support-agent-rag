@@ -9,6 +9,8 @@ pwdlib[argon2]==0.2.1
 PyJWT==2.10.1
 pytest==8.3.5
 python-multipart==0.0.20
+pypdf==5.9.0
+python-docx==1.2.0
 SQLAlchemy==2.0.35
 uvicorn[standard]==0.30.6
 

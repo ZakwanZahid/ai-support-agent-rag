@@ -23,3 +23,27 @@ SQLAlchemy 2.0 declarative models define the application schema, and Alembic rec
 Status: Accepted
 
 `message_citations` is a separate table rather than JSON embedded in a message. Each citation can point to the source document and exact chunk, preserving traceability, supporting audits and feedback analysis, and allowing retrieval metadata to evolve independently of chat content.
+
+## ADR-005: Separate Upload from Ingestion
+
+Status: Accepted
+
+Upload stores the original file and a pending database record. Ingestion independently extracts and chunks that stored file. This keeps HTTP uploads responsive, gives failures a retry path, and creates a clear boundary for a future worker service.
+
+## ADR-006: FastAPI BackgroundTasks for MVP Ingestion
+
+Status: Accepted
+
+The MVP schedules ingestion with FastAPI `BackgroundTasks`, and each task opens its own database session. This avoids introducing queue infrastructure before ingestion behavior is proven. The tradeoff is that tasks are not durable across process restarts, so RQ, Celery, or a dedicated worker is expected as the workload grows.
+
+## ADR-007: Simple Custom Chunking Before Framework Splitters
+
+Status: Accepted
+
+The first splitter is a small character-based implementation with overlap and readable-boundary detection. Keeping it local makes chunk boundaries and metadata easy to inspect and demonstrates the underlying mechanics before evaluating LangChain or another framework splitter.
+
+## ADR-008: Nullable Embeddings Until Indexing
+
+Status: Accepted
+
+Text extraction creates chunks with null embeddings and marks the document processed. Embedding generation is a separate indexing phase that will move documents to indexed. This separates deterministic file processing from model-dependent external calls and allows either phase to be retried independently.

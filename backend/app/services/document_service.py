@@ -6,6 +6,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
+from app.core.storage import resolve_storage_path
 from app.models.document import Document
 from app.repositories.document_repository import DocumentRepository
 from app.repositories.knowledge_base_repository import KnowledgeBaseRepository
@@ -18,7 +19,6 @@ SUPPORTED_FILE_EXTENSIONS = {
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document": {".docx"},
 }
 UPLOAD_CHUNK_SIZE = 1024 * 1024
-PROJECT_ROOT = Path(__file__).resolve().parents[3]
 
 
 class DocumentNotFoundError(Exception):
@@ -75,8 +75,7 @@ class DocumentService:
             / str(knowledge_base_id)
             / stored_name
         )
-        stored_path = configured_path if configured_path.is_absolute() else PROJECT_ROOT / configured_path
-        stored_path = stored_path.resolve()
+        stored_path = resolve_storage_path(configured_path)
 
         try:
             stored_path.parent.mkdir(parents=True, exist_ok=True)

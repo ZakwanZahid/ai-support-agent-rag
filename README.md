@@ -42,6 +42,7 @@ This repository now includes the initial FastAPI backend and a multi-tenant Post
 - [Database Schema](docs/03-database-schema.md)
 - [Authentication and Tenancy](docs/04-auth-tenancy.md)
 - [Knowledge Bases and Document Uploads](docs/05-document-upload.md)
+- [Document Ingestion](docs/07-document-ingestion.md)
 - [API Design](docs/api-design.md)
 - [System Design Decisions](docs/06-decisions.md)
 
@@ -74,8 +75,9 @@ This project has the first backend foundation in place:
 - PostgreSQL + pgvector Docker Compose setup
 - JWT authentication, current-user resolution, and organization membership enforcement
 - Organization-scoped knowledge-base APIs and pending document uploads
+- Background text extraction and custom document chunking
 
-Document extraction, chunking, embeddings, retrieval, AI generation, frontend, and workers are still pending.
+Embeddings, retrieval, AI generation, frontend, and durable workers are still pending.
 
 ## Database Schema
 
@@ -103,6 +105,11 @@ Required authentication settings:
 JWT_SECRET_KEY=change-me-in-development
 JWT_ALGORITHM=HS256
 ACCESS_TOKEN_EXPIRE_MINUTES=60
+UPLOAD_DIR=storage/uploads
+MAX_UPLOAD_SIZE_MB=10
+AUTO_INGEST_ON_UPLOAD=true
+CHUNK_SIZE=1200
+CHUNK_OVERLAP=200
 ```
 
 Available endpoints:
@@ -119,6 +126,7 @@ Available endpoints:
 - `POST /api/v1/organizations/{organization_id}/knowledge-bases/{knowledge_base_id}/documents/upload`
 - `GET /api/v1/organizations/{organization_id}/documents`
 - `GET /api/v1/organizations/{organization_id}/documents/{document_id}`
+- `POST /api/v1/organizations/{organization_id}/documents/{document_id}/ingest`
 
 Register:
 
@@ -161,7 +169,28 @@ curl.exe -X POST http://127.0.0.1:8000/api/v1/organizations/ORGANIZATION_ID/know
   -F "file=@C:\path\to\getting-started.txt;type=text/plain"
 ```
 
-Uploads create a `pending` document. Future background ingestion changes it to `processing`, then `indexed` or `failed`. Files are stored under `storage/uploads/{organization_id}/{knowledge_base_id}/`.
+Uploads create a `pending` document. Background ingestion changes it to `processing`, then `processed` or `failed`. A later embedding phase will move processed documents to `indexed`. Files are stored under `storage/uploads/{organization_id}/{knowledge_base_id}/`.
+
+Manually schedule ingestion:
+
+```powershell
+curl.exe -X POST "http://127.0.0.1:8000/api/v1/organizations/ORGANIZATION_ID/documents/DOCUMENT_ID/ingest" `
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
+```
+
+Reprocess a completed document and replace its chunks:
+
+```powershell
+curl.exe -X POST "http://127.0.0.1:8000/api/v1/organizations/ORGANIZATION_ID/documents/DOCUMENT_ID/ingest?force=true" `
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
+```
+
+Apply the status-constraint migration before testing ingestion:
+
+```powershell
+cd backend
+.\.venv\Scripts\python.exe -m alembic upgrade head
+```
 
 Run tests from `backend/`:
 
