@@ -1,5 +1,6 @@
 from fastapi import APIRouter
 
+from app.api.v1.conversations import router as conversations_router
 from app.api.v1.documents import router as documents_router
 from app.api.v1.ingestion import router as ingestion_router
 from app.api.v1.indexing import router as indexing_router
@@ -13,6 +14,7 @@ api_v1_router = APIRouter()
 api_v1_router.include_router(health_router, tags=["health"])
 api_v1_router.include_router(auth_router)
 api_v1_router.include_router(organizations_router)
+api_v1_router.include_router(conversations_router)
 api_v1_router.include_router(knowledge_bases_router)
 api_v1_router.include_router(documents_router)
 api_v1_router.include_router(ingestion_router)

@@ -10,6 +10,8 @@ from sqlalchemy.orm import Session
 from app.core.security import decode_access_token
 from app.db.session import get_db as session_get_db
 from app.ingestion.pipeline import ingest_document
+from app.llm.factory import UnsupportedChatProviderError, get_chat_provider
+from app.llm.provider import ChatProvider, ChatProviderConfigurationError
 from app.embeddings.factory import (
     UnsupportedEmbeddingProviderError,
     get_embedding_provider,
@@ -46,6 +48,16 @@ def get_request_embedding_provider() -> EmbeddingProvider:
     try:
         return get_embedding_provider()
     except (EmbeddingConfigurationError, UnsupportedEmbeddingProviderError) as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(exc),
+        )
+
+
+def get_request_chat_provider() -> ChatProvider:
+    try:
+        return get_chat_provider()
+    except (ChatProviderConfigurationError, UnsupportedChatProviderError) as exc:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=str(exc),

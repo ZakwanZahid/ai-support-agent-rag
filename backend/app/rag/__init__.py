@@ -1,0 +1,3 @@
+from app.rag.prompts import GROUNDED_SUPPORT_SYSTEM_PROMPT
+
+__all__ = ["GROUNDED_SUPPORT_SYSTEM_PROMPT"]

@@ -11,6 +11,7 @@ from app.models.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
 
 if TYPE_CHECKING:
     from app.models.document import Document, DocumentChunk
+    from app.models.knowledge_base import KnowledgeBase
     from app.models.organization import Organization
     from app.models.user import User
 
@@ -20,11 +21,23 @@ class Conversation(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 
     organization_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("organizations.id", ondelete="CASCADE"), index=True, nullable=False)
     user_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), index=True)
+    knowledge_base_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("knowledge_bases.id", ondelete="SET NULL"),
+        index=True,
+    )
     title: Mapped[str | None] = mapped_column(String(255))
 
     organization: Mapped["Organization"] = relationship(back_populates="conversations")
     user: Mapped["User | None"] = relationship(back_populates="conversations")
-    messages: Mapped[list["Message"]] = relationship(back_populates="conversation", cascade="all, delete-orphan")
+    knowledge_base: Mapped["KnowledgeBase | None"] = relationship(
+        back_populates="conversations"
+    )
+    messages: Mapped[list["Message"]] = relationship(
+        back_populates="conversation",
+        cascade="all, delete-orphan",
+        order_by="Message.created_at, Message.id",
+    )
 
 
 class Message(UUIDPrimaryKeyMixin, Base):
@@ -39,7 +52,11 @@ class Message(UUIDPrimaryKeyMixin, Base):
 
     organization: Mapped["Organization"] = relationship(back_populates="messages")
     conversation: Mapped["Conversation"] = relationship(back_populates="messages")
-    citations: Mapped[list["MessageCitation"]] = relationship(back_populates="message", cascade="all, delete-orphan")
+    citations: Mapped[list["MessageCitation"]] = relationship(
+        back_populates="message",
+        cascade="all, delete-orphan",
+        order_by="MessageCitation.created_at, MessageCitation.id",
+    )
     feedback: Mapped["MessageFeedback | None"] = relationship(back_populates="message", cascade="all, delete-orphan", uselist=False)
 
 

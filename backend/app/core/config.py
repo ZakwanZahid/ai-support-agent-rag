@@ -30,12 +30,27 @@ class Settings(BaseSettings):
     )
     embedding_dimensions: int = Field(default=1536, alias="EMBEDDING_DIMENSIONS", gt=0)
     index_batch_size: int = Field(default=50, alias="INDEX_BATCH_SIZE", gt=0)
+    chat_provider: str = Field(default="openai", alias="CHAT_PROVIDER")
+    chat_model: str = Field(default="gpt-4o-mini", alias="CHAT_MODEL")
+    chat_temperature: float = Field(
+        default=0.2,
+        alias="CHAT_TEMPERATURE",
+        ge=0,
+        le=2,
+    )
+    rag_top_k: int = Field(default=5, alias="RAG_TOP_K", ge=1, le=50)
+    rag_max_context_chars: int = Field(
+        default=12000,
+        alias="RAG_MAX_CONTEXT_CHARS",
+        gt=0,
+    )
 
     @model_validator(mode="after")
     def validate_chunk_settings(self) -> "Settings":
         if self.chunk_overlap >= self.chunk_size:
             raise ValueError("CHUNK_OVERLAP must be smaller than CHUNK_SIZE")
         self.embedding_provider = self.embedding_provider.strip().lower()
+        self.chat_provider = self.chat_provider.strip().lower()
         return self
 
     model_config = SettingsConfigDict(
