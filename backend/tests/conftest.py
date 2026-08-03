@@ -10,10 +10,12 @@ from app.api.deps import (
     get_db,
     get_indexing_runner,
     get_ingestion_runner,
+    get_preparation_runner,
     get_request_chat_provider,
     get_request_embedding_provider,
 )
 from app.core.config import settings
+from app.documents.preparation import prepare_document
 from app.embeddings.indexing import index_document
 from app.main import app
 from app.models.base import Base
@@ -131,7 +133,10 @@ def client(db: Session) -> TestClient:
     def override_get_db():
         yield db
 
-    def run_ingestion_for_test(document_id, organization_id, force=False):
+    # The trailing session_factory is ignored: these always run against the
+    # in-memory test session. It exists so prepare_document can call them with
+    # the same signature it uses for the real runners.
+    def run_ingestion_for_test(document_id, organization_id, force=False, _factory=None):
         ingest_document(
             document_id,
             organization_id,
@@ -142,7 +147,7 @@ def client(db: Session) -> TestClient:
     def get_fake_embedding_provider():
         return FakeEmbeddingProvider()
 
-    def run_indexing_for_test(document_id, organization_id, force=False):
+    def run_indexing_for_test(document_id, organization_id, force=False, _factory=None):
         index_document(
             document_id,
             organization_id,
@@ -151,9 +156,20 @@ def client(db: Session) -> TestClient:
             provider_factory=get_fake_embedding_provider,
         )
 
+    def run_preparation_for_test(document_id, organization_id, force=False):
+        prepare_document(
+            document_id,
+            organization_id,
+            force,
+            session_factory=TestingSessionLocal,
+            ingest=run_ingestion_for_test,
+            index=run_indexing_for_test,
+        )
+
     app.dependency_overrides[get_db] = override_get_db
     app.dependency_overrides[get_ingestion_runner] = lambda: run_ingestion_for_test
     app.dependency_overrides[get_indexing_runner] = lambda: run_indexing_for_test
+    app.dependency_overrides[get_preparation_runner] = lambda: run_preparation_for_test
     app.dependency_overrides[get_request_embedding_provider] = (
         get_fake_embedding_provider
     )

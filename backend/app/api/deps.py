@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.core.security import decode_access_token
 from app.db.session import get_db as session_get_db
+from app.documents.preparation import prepare_document
 from app.ingestion.pipeline import ingest_document
 from app.llm.factory import UnsupportedChatProviderError, get_chat_provider
 from app.llm.provider import ChatProvider, ChatProviderConfigurationError
@@ -30,6 +31,7 @@ from app.repositories.user_repository import UserRepository
 bearer_scheme = HTTPBearer(auto_error=False)
 IngestionRunner = Callable[[uuid.UUID, uuid.UUID, bool], None]
 IndexingRunner = Callable[[uuid.UUID, uuid.UUID, bool], None]
+PreparationRunner = Callable[[uuid.UUID, uuid.UUID, bool], None]
 
 
 def get_db() -> Generator[Session, None, None]:
@@ -42,6 +44,10 @@ def get_ingestion_runner() -> IngestionRunner:
 
 def get_indexing_runner() -> IndexingRunner:
     return index_document
+
+
+def get_preparation_runner() -> PreparationRunner:
+    return prepare_document
 
 
 def get_request_embedding_provider() -> EmbeddingProvider:

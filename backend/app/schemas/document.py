@@ -25,3 +25,9 @@ class IngestionScheduledResponse(BaseModel):
     document_id: uuid.UUID
     status: str = "processing"
     message: str = "Document ingestion scheduled"
+
+
+class PreparationScheduledResponse(BaseModel):
+    document_id: uuid.UUID
+    status: str = "processing"
+    message: str = "Document is being prepared for chat"
