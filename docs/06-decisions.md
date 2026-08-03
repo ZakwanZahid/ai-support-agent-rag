@@ -91,3 +91,57 @@ Changing to a model with a different embedding size, such as a 384-dimensional l
 Status: Accepted
 
 A direct semantic-search endpoint ships before chat answer generation. It exposes chunk ranking, distance, metadata, and tenant filters directly, making retrieval relevance and isolation easier to test before prompts, citations, and model-generated answers add more variables.
+
+## ADR-014: Add RAG Chat After Semantic Search
+
+Status: Accepted
+
+RAG chat is added only after tenant-scoped semantic search is working and tested. The chat flow reuses the proven embedding and retrieval path, then adds bounded context, grounded generation, persistence, and citations. This sequencing isolates retrieval quality from generation quality and makes failures easier to diagnose.
+
+## ADR-015: Provider Abstraction for Chat Models
+
+Status: Accepted
+
+RAG services depend on a small `generate_answer(system_prompt, user_prompt)` protocol. OpenAI SDK details stay inside the OpenAI adapter, while selection happens in a factory. Gemini, Anthropic, or a local model can be added later without coupling routes, retrieval, prompting, or persistence to a vendor SDK.
+
+## ADR-016: Simple RAG Service Before LangGraph
+
+Status: Accepted
+
+The first RAG workflow is an explicit synchronous service rather than a LangGraph graph. The flow is currently linear, has no tools or branching, and benefits from easy transaction boundaries and straightforward tests. LangGraph remains appropriate when orchestration adds routing, tool calls, retries, memory workflows, or human handoffs.
+
+## ADR-017: Return Citation Metadata with the Answer
+
+Status: Accepted
+
+The chat response returns document ID, document title, chunk ID, quote, score, and chunk metadata alongside the answer. Clients can show sources immediately without parsing model-generated markdown or making an additional request. Citation identity is built by the application from retrieved rows, not invented by the model.
+
+## ADR-018: Next.js App Router for the Frontend
+
+Status: Accepted
+
+Frontend v1 uses Next.js with the App Router and TypeScript. Nested layouts provide a natural boundary between public authentication pages and the protected dashboard shell, while file-based routes map directly to product areas and conversation detail views. This keeps routing and page composition explicit without introducing a separate routing framework.
+
+## ADR-019: Tailwind CSS and shadcn/ui-Style Components
+
+Status: Accepted
+
+The frontend uses Tailwind CSS for design tokens and responsive layout, with reusable shadcn/ui-style primitives composed into project-specific components. This supports a restrained custom interface without committing the project to an opaque theme or a large component suite. Accessibility states, spacing, borders, and status colors remain consistent while product components stay editable in the repository.
+
+## ADR-020: TanStack Query for Server State
+
+Status: Accepted
+
+Current-user, organization, knowledge-base, document, conversation, and message data come from the FastAPI backend and are managed as server state through TanStack Query. Query keys make tenant scope explicit, and targeted invalidation keeps reads fresh after writes. Local component state remains appropriate for transient UI such as open dialogs or draft input.
+
+## ADR-021: localStorage JWT for MVP
+
+Status: Accepted for MVP
+
+Frontend v1 stores the API access token in browser `localStorage` and attaches it through the shared Axios client. This matches the existing bearer-token backend and keeps local setup straightforward. The tradeoff is exposure to token theft if an XSS vulnerability exists. A production authentication milestone should move session credentials to `Secure`, `HttpOnly` cookies with appropriate same-site and CSRF controls.
+
+## ADR-022: Build the Frontend After the RAG API
+
+Status: Accepted
+
+The product UI is added after authentication, organization isolation, document ingestion and indexing, semantic search, and RAG chat with citations are working through the API. As a result, Frontend v1 can exercise the real upload-to-answer lifecycle rather than designing against guessed contracts or placeholder messages. The backend remains the authorization and tenant-isolation boundary.
