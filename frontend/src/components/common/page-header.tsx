@@ -26,15 +26,15 @@ export function PageHeader({
     >
       <div className="min-w-0 max-w-3xl">
         {eyebrow ? (
-          <p className="mb-2 text-xs font-semibold uppercase tracking-[0.12em] text-zinc-500">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-[0.12em] text-foreground-subtle">
             {eyebrow}
           </p>
         ) : null}
-        <h1 className="text-2xl font-semibold tracking-tight text-zinc-950 sm:text-3xl">
+        <h1 className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
           {title}
         </h1>
         {description ? (
-          <p className="mt-2 text-sm leading-6 text-zinc-600 sm:text-base">
+          <p className="mt-2 text-sm leading-6 text-foreground-muted sm:text-base">
             {description}
           </p>
         ) : null}

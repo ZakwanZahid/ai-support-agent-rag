@@ -46,7 +46,7 @@ export function LoadingSkeleton({
         {Array.from({ length: rows }).map((_, index) => (
           <div
             key={index}
-            className="space-y-4 rounded-lg border border-zinc-200 bg-white p-5"
+            className="space-y-4 rounded-lg border border-border bg-surface p-5"
           >
             <Skeleton className="h-5 w-2/3" />
             <Skeleton className="h-4 w-full" />
@@ -62,7 +62,7 @@ export function LoadingSkeleton({
       aria-label="Loading content"
       aria-busy="true"
       className={cn(
-        "divide-y divide-zinc-100 rounded-lg border border-zinc-200 bg-white",
+        "divide-y divide-border rounded-lg border border-border bg-surface",
         className,
       )}
     >

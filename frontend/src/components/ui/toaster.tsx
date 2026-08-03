@@ -10,10 +10,10 @@ function Toaster(props: ToasterProps) {
       toastOptions={{
         classNames: {
           toast:
-            "border border-zinc-200 bg-white text-zinc-950 shadow-lg",
-          description: "text-zinc-600",
-          actionButton: "bg-zinc-900 text-white",
-          cancelButton: "bg-zinc-100 text-zinc-700",
+            "border border-border bg-white text-foreground shadow-lg",
+          description: "text-foreground-muted",
+          actionButton: "bg-primary text-white",
+          cancelButton: "bg-surface-hover text-foreground-muted",
         },
       }}
       {...props}

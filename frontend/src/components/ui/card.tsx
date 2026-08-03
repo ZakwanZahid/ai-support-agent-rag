@@ -6,7 +6,7 @@ function Card({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       className={cn(
-        "rounded-lg border border-zinc-200 bg-white text-zinc-950",
+        "rounded-lg border border-border bg-white text-foreground",
         className,
       )}
       {...props}
@@ -38,7 +38,7 @@ function CardDescription({
 }: React.ComponentProps<"p">) {
   return (
     <p
-      className={cn("text-sm leading-6 text-zinc-600", className)}
+      className={cn("text-sm leading-6 text-foreground-muted", className)}
       {...props}
     />
   );
@@ -52,7 +52,7 @@ function CardFooter({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       className={cn(
-        "flex items-center gap-3 border-t border-zinc-100 px-5 py-4 sm:px-6",
+        "flex items-center gap-3 border-t border-border px-5 py-4 sm:px-6",
         className,
       )}
       {...props}

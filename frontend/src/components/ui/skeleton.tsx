@@ -6,7 +6,7 @@ function Skeleton({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       aria-hidden="true"
-      className={cn("animate-pulse rounded-md bg-zinc-200", className)}
+      className={cn("animate-pulse rounded-md bg-surface-subtle", className)}
       {...props}
     />
   );
