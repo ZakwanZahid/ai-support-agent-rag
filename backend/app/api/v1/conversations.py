@@ -81,7 +81,7 @@ def list_conversations(
         OrganizationMember,
         Depends(require_organization_member),
     ],
-) -> list[Conversation]:
+) -> list[ConversationResponse]:
     return ConversationService(db).list_for_user(
         organization_id=organization_id,
         user=current_user,

@@ -34,3 +34,7 @@ class KnowledgeBaseResponse(BaseModel):
     description: str | None
     created_at: datetime
     updated_at: datetime
+    # Included so clients can show "3 documents, 2 ready" without fetching
+    # every document just to count them.
+    document_count: int = 0
+    ready_document_count: int = 0

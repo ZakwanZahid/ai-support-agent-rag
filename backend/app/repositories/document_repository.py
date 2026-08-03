@@ -1,9 +1,16 @@
 import uuid
+from dataclasses import dataclass
 
-from sqlalchemy import select
+from sqlalchemy import case, func, select
 from sqlalchemy.orm import Session
 
 from app.models.document import Document
+
+
+@dataclass(frozen=True)
+class DocumentCounts:
+    total: int
+    ready: int
 
 
 class DocumentRepository:
@@ -57,3 +64,28 @@ class DocumentRepository:
             statement = statement.where(Document.knowledge_base_id == knowledge_base_id)
         statement = statement.order_by(Document.created_at.desc(), Document.id)
         return list(self.db.scalars(statement).all())
+
+    def counts_by_knowledge_base(
+        self,
+        organization_id: uuid.UUID,
+    ) -> dict[uuid.UUID, DocumentCounts]:
+        """Total and ready document counts per knowledge base, in one query.
+
+        Keeps the knowledge base list endpoint from issuing a count per row.
+        Knowledge bases with no documents are absent from the result; callers
+        treat a missing key as zero.
+        """
+        statement = (
+            select(
+                Document.knowledge_base_id,
+                func.count(Document.id),
+                # count() ignores NULLs, so the CASE yields only indexed rows.
+                func.count(case((Document.status == "indexed", 1))),
+            )
+            .where(Document.organization_id == organization_id)
+            .group_by(Document.knowledge_base_id)
+        )
+        return {
+            knowledge_base_id: DocumentCounts(total=total, ready=ready)
+            for knowledge_base_id, total, ready in self.db.execute(statement).all()
+        }

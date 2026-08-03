@@ -39,6 +39,9 @@ class MessageResponse(BaseModel):
     citations: list[CitationResponse] = Field(default_factory=list)
 
 
+MESSAGE_PREVIEW_MAX_CHARS = 160
+
+
 class ConversationResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -49,6 +52,10 @@ class ConversationResponse(BaseModel):
     title: str | None
     created_at: datetime
     updated_at: datetime
+    # Included so a conversation list can show a preview without loading every
+    # message in every thread.
+    message_count: int = 0
+    last_message_preview: str | None = None
 
 
 class ConversationDetailResponse(ConversationResponse):

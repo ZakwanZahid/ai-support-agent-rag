@@ -8,11 +8,23 @@ from app.models.user import User
 from app.repositories.conversation_repository import ConversationRepository
 from app.repositories.knowledge_base_repository import KnowledgeBaseRepository
 from app.schemas.conversation import (
+    MESSAGE_PREVIEW_MAX_CHARS,
     CitationResponse,
     ConversationCreate,
     ConversationDetailResponse,
+    ConversationResponse,
     MessageResponse,
 )
+
+
+def _preview(content: str | None) -> str | None:
+    """Collapse a message to a single line short enough for a list row."""
+    if not content:
+        return None
+    collapsed = " ".join(content.split())
+    if len(collapsed) <= MESSAGE_PREVIEW_MAX_CHARS:
+        return collapsed
+    return f"{collapsed[:MESSAGE_PREVIEW_MAX_CHARS].rstrip()}…"
 
 
 class ConversationNotFoundError(Exception):
@@ -63,11 +75,20 @@ class ConversationService:
         *,
         organization_id: uuid.UUID,
         user: User,
-    ) -> list[Conversation]:
-        return self.conversations.list_for_user(
+    ) -> list[ConversationResponse]:
+        summaries = self.conversations.list_summaries_for_user(
             organization_id=organization_id,
             user_id=user.id,
         )
+        return [
+            ConversationResponse.model_validate(summary.conversation).model_copy(
+                update={
+                    "message_count": summary.message_count,
+                    "last_message_preview": _preview(summary.last_message),
+                },
+            )
+            for summary in summaries
+        ]
 
     def get_detail(
         self,

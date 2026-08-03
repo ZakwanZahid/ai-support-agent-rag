@@ -5,7 +5,6 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_db, require_organization_member, require_role
-from app.models.knowledge_base import KnowledgeBase
 from app.models.organization import OrganizationMember
 from app.schemas.knowledge_base import KnowledgeBaseCreate, KnowledgeBaseResponse
 from app.services.knowledge_base_service import (
@@ -28,7 +27,7 @@ def create_knowledge_base(
     data: KnowledgeBaseCreate,
     db: Annotated[Session, Depends(get_db)],
     _membership: Annotated[OrganizationMember, Depends(owner_or_admin)],
-) -> KnowledgeBase:
+) -> KnowledgeBaseResponse:
     try:
         return KnowledgeBaseService(db).create(
             organization_id=organization_id,
@@ -49,7 +48,7 @@ def list_knowledge_bases(
         OrganizationMember,
         Depends(require_organization_member),
     ],
-) -> list[KnowledgeBase]:
+) -> list[KnowledgeBaseResponse]:
     return KnowledgeBaseService(db).list_for_organization(organization_id)
 
 
@@ -62,7 +61,7 @@ def get_knowledge_base(
         OrganizationMember,
         Depends(require_organization_member),
     ],
-) -> KnowledgeBase:
+) -> KnowledgeBaseResponse:
     try:
         return KnowledgeBaseService(db).get(
             organization_id=organization_id,
