@@ -64,7 +64,7 @@ export function CreateKnowledgeBaseDialog({
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <span className="mb-2 flex size-9 items-center justify-center rounded-md bg-zinc-100 text-zinc-700">
+          <span className="mb-2 flex size-9 items-center justify-center rounded-md bg-surface-hover text-foreground-muted">
             <BookPlus aria-hidden="true" className="size-4" />
           </span>
           <DialogTitle>Create a knowledge base</DialogTitle>

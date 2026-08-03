@@ -27,7 +27,7 @@ export function CitationCard({
   return (
     <article
       className={cn(
-        "rounded-md border border-zinc-200 bg-zinc-50 p-3.5",
+        "rounded-md border border-border bg-surface-subtle p-3.5",
         className,
       )}
     >
@@ -35,24 +35,24 @@ export function CitationCard({
         <div className="flex min-w-0 items-center gap-2">
           <FileText
             aria-hidden="true"
-            className="size-4 shrink-0 text-zinc-500"
+            className="size-4 shrink-0 text-foreground-subtle"
           />
-          <h4 className="truncate text-sm font-medium text-zinc-900">
+          <h4 className="truncate text-sm font-medium text-foreground">
             {citation.document_title || "Untitled document"}
           </h4>
         </div>
         {index !== undefined ? (
-          <span className="shrink-0 text-xs font-medium text-zinc-500">
+          <span className="shrink-0 text-xs font-medium text-foreground-subtle">
             Source {index + 1}
           </span>
         ) : null}
       </div>
-      <blockquote className="mt-2.5 border-l-2 border-zinc-300 pl-3 text-sm leading-6 text-zinc-600">
+      <blockquote className="mt-2.5 border-l-2 border-border-strong pl-3 text-sm leading-6 text-foreground-muted">
         {citation.quote}
       </blockquote>
       {score ? (
         <div
-          className="mt-3 flex items-center gap-1.5 text-xs text-zinc-500"
+          className="mt-3 flex items-center gap-1.5 text-xs text-foreground-subtle"
           title="Semantic relevance score"
         >
           <Gauge aria-hidden="true" className="size-3.5" />

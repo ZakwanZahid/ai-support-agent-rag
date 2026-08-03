@@ -1,18 +1,10 @@
+import type { UUID } from "@/types/api";
+import type { Workspace, WorkspaceDraft } from "@/types/workspace";
+
 import { apiClient } from "./client";
-import type { ISODateString, UUID } from "./types";
 
-export interface OrganizationCreate {
-  name: string;
-  slug?: string | null;
-}
-
-export interface OrganizationResponse {
-  id: UUID;
-  name: string;
-  slug: string;
-  created_at: ISODateString;
-  updated_at: ISODateString;
-}
+export type OrganizationCreate = WorkspaceDraft;
+export type OrganizationResponse = Workspace;
 
 export async function createOrganization(
   data: OrganizationCreate,

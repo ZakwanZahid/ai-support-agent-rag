@@ -1,7 +1,7 @@
 import axios, { isAxiosError, type AxiosError } from "axios";
 
-import { clearAccessToken, getAccessToken } from "../auth-token";
-import type { FastAPIErrorBody, FastAPIValidationIssue } from "./types";
+import { clearAccessToken, getAccessToken } from "@/lib/auth/token";
+import type { FastAPIErrorBody, FastAPIValidationIssue } from "@/types/api";
 
 const DEFAULT_API_BASE_URL = "http://127.0.0.1:8000";
 

@@ -39,7 +39,7 @@ export function ChatMessage({
       aria-label={`${isUser ? "Your" : "Assistant"} message`}
     >
       {!isUser ? (
-        <span className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-md border border-zinc-200 bg-white text-zinc-700">
+        <span className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-md border border-border bg-white text-foreground-muted">
           <Bot aria-hidden="true" className="size-4" />
         </span>
       ) : null}
@@ -54,14 +54,14 @@ export function ChatMessage({
           className={cn(
             "rounded-lg px-4 py-3 text-sm leading-6",
             isUser
-              ? "bg-zinc-900 text-white"
-              : "border border-zinc-200 bg-white text-zinc-800",
+              ? "bg-primary text-white"
+              : "border border-border bg-white text-foreground",
           )}
         >
           {pending ? (
             <div className="space-y-2 py-1" aria-label="Generating answer">
-              <Skeleton className="h-3 w-52 bg-zinc-200" />
-              <Skeleton className="h-3 w-36 bg-zinc-200" />
+              <Skeleton className="h-3 w-52 bg-surface-subtle" />
+              <Skeleton className="h-3 w-36 bg-surface-subtle" />
             </div>
           ) : (
             <p className="whitespace-pre-wrap break-words">{message.content}</p>
@@ -70,12 +70,12 @@ export function ChatMessage({
 
         {!pending && citations.length > 0 ? (
           <details className="group mt-3" open>
-            <summary className="cursor-pointer list-none text-xs font-medium text-zinc-600 outline-none hover:text-zinc-950 focus-visible:ring-2 focus-visible:ring-zinc-950 [&::-webkit-details-marker]:hidden">
+            <summary className="cursor-pointer list-none text-xs font-medium text-foreground-muted outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-details-marker]:hidden">
               <span className="inline-flex items-center gap-1.5 rounded-sm">
                 {citations.length} {citations.length === 1 ? "citation" : "citations"}
                 <span
                   aria-hidden="true"
-                  className="text-zinc-400 transition-transform group-open:rotate-180"
+                  className="text-foreground-subtle transition-transform group-open:rotate-180"
                 >
                   ↓
                 </span>
@@ -96,7 +96,7 @@ export function ChatMessage({
         {message.created_at ? (
           <p
             className={cn(
-              "mt-1.5 text-xs text-zinc-400",
+              "mt-1.5 text-xs text-foreground-subtle",
               isUser && "text-right",
             )}
           >
@@ -106,7 +106,7 @@ export function ChatMessage({
       </div>
 
       {isUser ? (
-        <span className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-md bg-zinc-200 text-zinc-700">
+        <span className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-md bg-surface-subtle text-foreground-muted">
           <UserRound aria-hidden="true" className="size-4" />
         </span>
       ) : null}

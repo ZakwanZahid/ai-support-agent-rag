@@ -45,7 +45,7 @@ export function ConversationThread({
   }, [messages.length, pendingQuestion, sending]);
 
   return (
-    <div className="flex min-h-[34rem] flex-col overflow-hidden rounded-lg border border-zinc-200 bg-zinc-50">
+    <div className="flex min-h-[34rem] flex-col overflow-hidden rounded-lg border border-border bg-surface-subtle">
       <div className="flex-1 space-y-6 overflow-y-auto px-4 py-5 sm:px-6 sm:py-6">
         {messages.length === 0 && !pendingQuestion ? (
           <EmptyState
@@ -86,7 +86,7 @@ export function ConversationThread({
         ) : null}
         <div ref={endRef} />
       </div>
-      <div className="sticky bottom-0 border-t border-zinc-200 bg-white p-3 sm:p-4">
+      <div className="sticky bottom-0 border-t border-border bg-white p-3 sm:p-4">
         <ChatInput
           onSubmit={onSend}
           loading={sending}

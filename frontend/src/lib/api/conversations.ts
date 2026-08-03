@@ -1,59 +1,25 @@
+import type { UUID } from "@/types/api";
+import type {
+  AskRequest,
+  AskResponse,
+  ChatMessage,
+  ChatThread,
+  ChatThreadDetail,
+  ChatThreadDraft,
+  MessageRole,
+  Source,
+} from "@/types/conversation";
+
 import { apiClient } from "./client";
-import type { ISODateString, UUID } from "./types";
 
-export interface ConversationCreate {
-  title?: string | null;
-  knowledge_base_id?: UUID | null;
-}
-
-export interface CitationResponse {
-  document_id: UUID;
-  document_title: string;
-  chunk_id: UUID;
-  quote: string;
-  score: number;
-  chunk_metadata: Record<string, unknown> | null;
-}
-
-export type MessageRole = "user" | "assistant" | "system";
-
-export interface MessageResponse {
-  id: UUID;
-  organization_id: UUID;
-  conversation_id: UUID;
-  role: MessageRole;
-  content: string;
-  created_at: ISODateString;
-  citations: CitationResponse[];
-}
-
-export interface ConversationResponse {
-  id: UUID;
-  organization_id: UUID;
-  user_id: UUID | null;
-  knowledge_base_id: UUID | null;
-  title: string | null;
-  created_at: ISODateString;
-  updated_at: ISODateString;
-}
-
-export interface ConversationDetailResponse extends ConversationResponse {
-  messages: MessageResponse[];
-}
-
-export interface ChatMessageRequest {
-  question: string;
-  knowledge_base_id: UUID;
-  top_k?: number;
-}
-
-export interface ChatMessageResponse {
-  conversation_id: UUID;
-  user_message_id: UUID;
-  assistant_message_id: UUID;
-  answer: string;
-  citations: CitationResponse[];
-}
+export type { MessageRole };
+export type ConversationCreate = ChatThreadDraft;
+export type CitationResponse = Source;
+export type MessageResponse = ChatMessage;
+export type ConversationResponse = ChatThread;
+export type ConversationDetailResponse = ChatThreadDetail;
+export type ChatMessageRequest = AskRequest;
+export type ChatMessageResponse = AskResponse;
 
 function conversationsPath(organizationId: UUID): string {
   return `/api/v1/organizations/${encodeURIComponent(

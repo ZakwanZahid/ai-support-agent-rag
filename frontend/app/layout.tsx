@@ -15,11 +15,11 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: "AI Support Agent RAG",
-    template: "%s · AI Support Agent RAG",
+    default: "SupportMind",
+    template: "%s · SupportMind",
   },
   description:
-    "A multi-tenant AI support workspace for grounded answers with source citations.",
+    "Turn your support docs into an AI assistant that answers from your own knowledge, with sources.",
 };
 
 export default function RootLayout({

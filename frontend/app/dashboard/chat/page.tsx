@@ -23,13 +23,13 @@ import {
 } from "@/lib/api/conversations";
 import { listKnowledgeBases } from "@/lib/api/knowledge-bases";
 import { queryKeys } from "@/lib/query-keys";
-import { useDashboard } from "@/hooks/use-dashboard";
+import { useWorkspace } from "@/hooks/use-workspace";
 
 function ChatWorkspace() {
   const searchParams = useSearchParams();
   const requestedKnowledgeBaseId = searchParams.get("knowledgeBaseId");
-  const { selectedOrganization } = useDashboard();
-  const organizationId = selectedOrganization?.id;
+  const { activeWorkspace } = useWorkspace();
+  const organizationId = activeWorkspace?.id;
   const queryClient = useQueryClient();
   const [knowledgeBaseSelection, setKnowledgeBaseSelection] = useState("");
   const [conversationSelection, setConversationSelection] = useState("");
@@ -116,7 +116,7 @@ function ChatWorkspace() {
     onSettled: () => setPendingQuestion(null),
   });
 
-  if (!selectedOrganization) {
+  if (!activeWorkspace) {
     return (
       <EmptyState
         icon={MessagesSquare}
@@ -176,10 +176,10 @@ function ChatWorkspace() {
       <div className="grid gap-5 xl:grid-cols-[19rem_minmax(0,1fr)]">
         <Card className="h-fit">
           <CardHeader>
-            <h2 className="text-base font-semibold text-zinc-950">
+            <h2 className="text-base font-semibold text-foreground">
               Conversation setup
             </h2>
-            <p className="text-sm leading-6 text-zinc-600">
+            <p className="text-sm leading-6 text-foreground-muted">
               Choose the source boundary, then start or resume a conversation.
             </p>
           </CardHeader>
@@ -187,7 +187,7 @@ function ChatWorkspace() {
             <div className="space-y-2">
               <label
                 htmlFor="chat-knowledge-base"
-                className="text-sm font-medium text-zinc-900"
+                className="text-sm font-medium text-foreground"
               >
                 Knowledge base
               </label>
@@ -198,7 +198,7 @@ function ChatWorkspace() {
                   setKnowledgeBaseSelection(event.target.value);
                   setConversationSelection("");
                 }}
-                className="h-10 w-full rounded-md border border-zinc-300 bg-white px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-zinc-950/10"
+                className="h-10 w-full rounded-md border border-border-strong bg-white px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring/10"
               >
                 {knowledgeBasesQuery.data.map((knowledgeBase) => (
                   <option key={knowledgeBase.id} value={knowledgeBase.id}>
@@ -211,7 +211,7 @@ function ChatWorkspace() {
             <div className="space-y-2">
               <label
                 htmlFor="conversation-selector"
-                className="text-sm font-medium text-zinc-900"
+                className="text-sm font-medium text-foreground"
               >
                 Saved conversation
               </label>
@@ -221,7 +221,7 @@ function ChatWorkspace() {
                 onChange={(event) =>
                   setConversationSelection(event.target.value)
                 }
-                className="h-10 w-full rounded-md border border-zinc-300 bg-white px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-zinc-950/10"
+                className="h-10 w-full rounded-md border border-border-strong bg-white px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring/10"
               >
                 <option value="">Start a new conversation</option>
                 {matchingConversations.map((conversation) => (

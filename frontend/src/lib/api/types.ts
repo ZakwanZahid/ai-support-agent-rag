@@ -1,15 +1,10 @@
-export type UUID = string;
-export type ISODateString = string;
-
-export interface FastAPIValidationIssue {
-  type: string;
-  loc: Array<string | number>;
-  msg: string;
-  input?: unknown;
-  ctx?: Record<string, unknown>;
-}
-
-export interface FastAPIErrorBody {
-  detail?: string | FastAPIValidationIssue[];
-  message?: string;
-}
+/**
+ * Re-exported from the domain types so existing imports keep working.
+ * New code should import from `@/types` directly.
+ */
+export type {
+  FastAPIErrorBody,
+  FastAPIValidationIssue,
+  ISODateString,
+  UUID,
+} from "@/types/api";

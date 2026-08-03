@@ -51,16 +51,16 @@ export default function LoginPage() {
   return (
     <div>
       <div className="mb-8 lg:hidden">
-        <p className="text-sm font-semibold text-zinc-950">
+        <p className="text-sm font-semibold text-foreground">
           AI Support Agent RAG
         </p>
       </div>
       <div className="mb-7">
-        <p className="text-sm font-medium text-zinc-500">Welcome back</p>
-        <h2 className="mt-2 text-3xl font-semibold tracking-[-0.035em] text-zinc-950">
+        <p className="text-sm font-medium text-foreground-subtle">Welcome back</p>
+        <h2 className="mt-2 text-3xl font-semibold tracking-[-0.035em] text-foreground">
           Sign in to your workspace
         </h2>
-        <p className="mt-3 text-sm leading-6 text-zinc-600">
+        <p className="mt-3 text-sm leading-6 text-foreground-muted">
           Continue managing knowledge and grounded support conversations.
         </p>
       </div>
@@ -131,16 +131,16 @@ export default function LoginPage() {
         </form>
       </Form>
 
-      <p className="mt-6 text-center text-sm text-zinc-600">
+      <p className="mt-6 text-center text-sm text-foreground-muted">
         New to the workspace?{" "}
         <Link
           href="/register"
-          className="font-medium text-zinc-950 underline-offset-4 hover:underline"
+          className="font-medium text-foreground underline-offset-4 hover:underline"
         >
           Create an account
         </Link>
       </p>
-      <p className="mt-8 text-center text-xs leading-5 text-zinc-500">
+      <p className="mt-8 text-center text-xs leading-5 text-foreground-subtle">
         MVP sessions are stored in this browser. Production deployments should
         use secure httpOnly cookies.
       </p>

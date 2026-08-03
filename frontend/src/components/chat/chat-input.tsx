@@ -52,7 +52,7 @@ export function ChatInput({
   return (
     <form
       className={cn(
-        "rounded-lg border border-zinc-200 bg-white p-2 focus-within:border-zinc-400 focus-within:ring-2 focus-within:ring-zinc-950/5",
+        "rounded-lg border border-border bg-white p-2 focus-within:border-border-strong focus-within:ring-2 focus-within:ring-ring/5",
         className,
       )}
       onSubmit={(event) => {
@@ -79,7 +79,7 @@ export function ChatInput({
         className="min-h-20 resize-none border-0 px-2 py-2 shadow-none focus-visible:ring-0"
       />
       <div className="flex items-center justify-between gap-3 px-1 pb-1">
-        <p className="hidden text-xs text-zinc-500 sm:block">
+        <p className="hidden text-xs text-foreground-subtle sm:block">
           Enter to send · Shift + Enter for a new line
         </p>
         <Button

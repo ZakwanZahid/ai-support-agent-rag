@@ -1,31 +1,17 @@
-import { clearAccessToken, setAccessToken } from "../auth-token";
+import { clearAccessToken, setAccessToken } from "@/lib/auth/token";
+import type {
+  AccessToken,
+  Credentials,
+  RegistrationDetails,
+  User,
+} from "@/types/auth";
+
 import { apiClient } from "./client";
-import type { ISODateString, UUID } from "./types";
 
-export interface RegisterRequest {
-  email: string;
-  password: string;
-  full_name?: string | null;
-}
-
-export interface LoginRequest {
-  email: string;
-  password: string;
-}
-
-export interface TokenResponse {
-  access_token: string;
-  token_type: string;
-}
-
-export interface UserResponse {
-  id: UUID;
-  email: string;
-  full_name: string | null;
-  is_active: boolean;
-  created_at: ISODateString;
-  updated_at: ISODateString;
-}
+export type RegisterRequest = RegistrationDetails;
+export type LoginRequest = Credentials;
+export type TokenResponse = AccessToken;
+export type UserResponse = User;
 
 export async function registerUser(data: RegisterRequest): Promise<UserResponse> {
   const response = await apiClient.post<UserResponse>("/api/v1/auth/register", data);

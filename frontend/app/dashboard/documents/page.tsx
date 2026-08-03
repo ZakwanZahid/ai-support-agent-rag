@@ -26,7 +26,7 @@ import { listDocuments, type DocumentResponse } from "@/lib/api/documents";
 import { listKnowledgeBases } from "@/lib/api/knowledge-bases";
 import { queryKeys } from "@/lib/query-keys";
 import { formatDate } from "@/lib/utils";
-import { useDashboard } from "@/hooks/use-dashboard";
+import { useWorkspace } from "@/hooks/use-workspace";
 import { useDocumentActions } from "@/hooks/use-document-actions";
 
 const statuses = [
@@ -39,8 +39,8 @@ const statuses = [
 ] as const;
 
 export default function DocumentsPage() {
-  const { selectedOrganization } = useDashboard();
-  const organizationId = selectedOrganization?.id;
+  const { activeWorkspace } = useWorkspace();
+  const organizationId = activeWorkspace?.id;
   const [statusFilter, setStatusFilter] =
     useState<(typeof statuses)[number]>("all");
   const [selectedDocument, setSelectedDocument] =
@@ -99,7 +99,7 @@ export default function DocumentsPage() {
         }
       />
 
-      {!selectedOrganization ? (
+      {!activeWorkspace ? (
         <EmptyState
           icon={Files}
           title="Select an organization"
@@ -128,11 +128,11 @@ export default function DocumentsPage() {
       ) : (
         <>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-sm text-zinc-600">
+            <p className="text-sm text-foreground-muted">
               Showing {documents.length} of {documentsQuery.data.length} documents
             </p>
             <div className="flex items-center gap-2">
-              <label htmlFor="status-filter" className="text-sm text-zinc-600">
+              <label htmlFor="status-filter" className="text-sm text-foreground-muted">
                 Status
               </label>
               <select
@@ -143,7 +143,7 @@ export default function DocumentsPage() {
                     event.target.value as (typeof statuses)[number],
                   )
                 }
-                className="h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm text-zinc-900 outline-none focus-visible:ring-2 focus-visible:ring-zinc-950/10"
+                className="h-10 rounded-md border border-border-strong bg-white px-3 text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/10"
               >
                 {statuses.map((status) => (
                   <option key={status} value={status}>
@@ -197,27 +197,27 @@ export default function DocumentsPage() {
           {selectedDocument ? (
             <dl className="grid gap-4 text-sm sm:grid-cols-2">
               <div>
-                <dt className="text-zinc-500">Status</dt>
+                <dt className="text-foreground-subtle">Status</dt>
                 <dd className="mt-1">
                   <StatusBadge status={selectedDocument.status} />
                 </dd>
               </div>
               <div>
-                <dt className="text-zinc-500">Uploaded</dt>
-                <dd className="mt-1 font-medium text-zinc-900">
+                <dt className="text-foreground-subtle">Uploaded</dt>
+                <dd className="mt-1 font-medium text-foreground">
                   {formatDate(selectedDocument.created_at)}
                 </dd>
               </div>
               <div>
-                <dt className="text-zinc-500">Knowledge base</dt>
-                <dd className="mt-1 font-medium text-zinc-900">
+                <dt className="text-foreground-subtle">Knowledge base</dt>
+                <dd className="mt-1 font-medium text-foreground">
                   {knowledgeBaseNames.get(selectedDocument.knowledge_base_id) ??
                     "Not available"}
                 </dd>
               </div>
               <div>
-                <dt className="text-zinc-500">Filename</dt>
-                <dd className="mt-1 break-words font-medium text-zinc-900">
+                <dt className="text-foreground-subtle">Filename</dt>
+                <dd className="mt-1 break-words font-medium text-foreground">
                   {selectedDocument.file_name ?? "Not available"}
                 </dd>
               </div>

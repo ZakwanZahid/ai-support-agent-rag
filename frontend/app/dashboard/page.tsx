@@ -22,7 +22,8 @@ import { listConversations } from "@/lib/api/conversations";
 import { listDocuments } from "@/lib/api/documents";
 import { listKnowledgeBases } from "@/lib/api/knowledge-bases";
 import { queryKeys } from "@/lib/query-keys";
-import { useDashboard } from "@/hooks/use-dashboard";
+import { useWorkspace } from "@/hooks/use-workspace";
+import { useAuth } from "@/lib/auth/auth-context";
 
 const stats = [
   { key: "knowledgeBases", label: "Knowledge bases", icon: BookOpen },
@@ -32,13 +33,13 @@ const stats = [
 ] as const;
 
 export default function DashboardPage() {
+  const { user } = useAuth();
   const {
-    user,
-    selectedOrganization,
-    setSelectedOrganizationId,
-    refetchOrganizations,
-  } = useDashboard();
-  const organizationId = selectedOrganization?.id;
+    activeWorkspace,
+    setActiveWorkspace,
+    refetch: refetchWorkspaces,
+  } = useWorkspace();
+  const organizationId = activeWorkspace?.id;
 
   const knowledgeBasesQuery = useQuery({
     queryKey: queryKeys.knowledgeBases(organizationId),
@@ -76,12 +77,12 @@ export default function DashboardPage() {
   return (
     <div className="space-y-8">
       <PageHeader
-        eyebrow={selectedOrganization?.name ?? "Workspace"}
-        title={`Welcome${user.full_name ? `, ${user.full_name.split(" ")[0]}` : ""}`}
+        eyebrow={activeWorkspace?.name ?? "Workspace"}
+        title={`Welcome${user?.full_name ? `, ${user.full_name.split(" ")[0]}` : ""}`}
         description="Manage the path from source documents to grounded support answers."
       />
 
-      {!selectedOrganization ? (
+      {!activeWorkspace ? (
         <EmptyState
           icon={BookOpen}
           title="Create your first organization"
@@ -89,8 +90,8 @@ export default function DashboardPage() {
           action={
             <CreateOrganizationDialog
               onCreated={async (organizationId) => {
-                await refetchOrganizations();
-                setSelectedOrganizationId(organizationId);
+                await refetchWorkspaces();
+                setActiveWorkspace(organizationId);
               }}
             />
           }
@@ -115,11 +116,11 @@ export default function DashboardPage() {
               {stats.map(({ key, label, icon: Icon }) => (
                 <Card key={key}>
                   <CardHeader className="flex-row items-center justify-between pb-3">
-                    <p className="text-sm font-medium text-zinc-600">{label}</p>
-                    <Icon aria-hidden="true" className="size-4 text-zinc-400" />
+                    <p className="text-sm font-medium text-foreground-muted">{label}</p>
+                    <Icon aria-hidden="true" className="size-4 text-foreground-subtle" />
                   </CardHeader>
                   <CardContent>
-                    <p className="text-3xl font-semibold tracking-tight text-zinc-950">
+                    <p className="text-3xl font-semibold tracking-tight text-foreground">
                       {values[key]}
                     </p>
                   </CardContent>
@@ -131,10 +132,10 @@ export default function DashboardPage() {
           <section className="grid gap-5 lg:grid-cols-[1.4fr_1fr]">
             <Card>
               <CardHeader>
-                <h2 className="text-base font-semibold text-zinc-950">
+                <h2 className="text-base font-semibold text-foreground">
                   Quick actions
                 </h2>
-                <p className="text-sm text-zinc-600">
+                <p className="text-sm text-foreground-muted">
                   Continue the document-to-answer workflow.
                 </p>
               </CardHeader>
@@ -152,7 +153,7 @@ export default function DashboardPage() {
                   </Link>
                 </Button>
                 <CreateKnowledgeBaseDialog
-                  organizationId={selectedOrganization.id}
+                  organizationId={activeWorkspace.id}
                   triggerLabel="Create knowledge base"
                   variant="outline"
                 />
@@ -161,23 +162,23 @@ export default function DashboardPage() {
 
             <Card>
               <CardHeader>
-                <h2 className="text-base font-semibold text-zinc-950">
+                <h2 className="text-base font-semibold text-foreground">
                   Retrieval readiness
                 </h2>
               </CardHeader>
               <CardContent>
                 {values.indexed > 0 ? (
                   <>
-                    <p className="text-3xl font-semibold text-zinc-950">
+                    <p className="text-3xl font-semibold text-foreground">
                       {values.indexed}
                     </p>
-                    <p className="mt-2 text-sm leading-6 text-zinc-600">
+                    <p className="mt-2 text-sm leading-6 text-foreground-muted">
                       Indexed {values.indexed === 1 ? "document is" : "documents are"}{" "}
                       available for semantic search and RAG chat.
                     </p>
                   </>
                 ) : (
-                  <p className="text-sm leading-6 text-zinc-600">
+                  <p className="text-sm leading-6 text-foreground-muted">
                     Upload, ingest, and index a document before asking grounded
                     questions.
                   </p>
@@ -194,7 +195,7 @@ export default function DashboardPage() {
               description="Create a knowledge base to organize the documents your support assistant can retrieve."
               action={
                 <CreateKnowledgeBaseDialog
-                  organizationId={selectedOrganization.id}
+                  organizationId={activeWorkspace.id}
                 />
               }
             />

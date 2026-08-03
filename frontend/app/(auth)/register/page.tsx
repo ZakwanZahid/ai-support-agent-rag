@@ -58,16 +58,16 @@ export default function RegisterPage() {
   return (
     <div>
       <div className="mb-8 lg:hidden">
-        <p className="text-sm font-semibold text-zinc-950">
+        <p className="text-sm font-semibold text-foreground">
           AI Support Agent RAG
         </p>
       </div>
       <div className="mb-7">
-        <p className="text-sm font-medium text-zinc-500">Create your workspace</p>
-        <h2 className="mt-2 text-3xl font-semibold tracking-[-0.035em] text-zinc-950">
+        <p className="text-sm font-medium text-foreground-subtle">Create your workspace</p>
+        <h2 className="mt-2 text-3xl font-semibold tracking-[-0.035em] text-foreground">
           Start with a secure account
         </h2>
-        <p className="mt-3 text-sm leading-6 text-zinc-600">
+        <p className="mt-3 text-sm leading-6 text-foreground-muted">
           You can create an organization and knowledge base after signing in.
         </p>
       </div>
@@ -158,11 +158,11 @@ export default function RegisterPage() {
         </form>
       </Form>
 
-      <p className="mt-6 text-center text-sm text-zinc-600">
+      <p className="mt-6 text-center text-sm text-foreground-muted">
         Already have an account?{" "}
         <Link
           href="/login"
-          className="font-medium text-zinc-950 underline-offset-4 hover:underline"
+          className="font-medium text-foreground underline-offset-4 hover:underline"
         >
           Sign in
         </Link>

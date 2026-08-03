@@ -78,7 +78,7 @@ export function DocumentUploadForm({
           aria-describedby="document-file-help document-file-error"
           {...register("file")}
         />
-        <p id="document-file-help" className="text-xs leading-5 text-zinc-500">
+        <p id="document-file-help" className="text-xs leading-5 text-foreground-subtle">
           Supported file types: {accept.replaceAll(".", "").replaceAll(",", ", ")}.
           Maximum {maxSizeMb} MB.
         </p>

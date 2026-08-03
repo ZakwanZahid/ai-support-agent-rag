@@ -1,67 +1,38 @@
 "use client";
 
-import * as React from "react";
-import { DatabaseZap } from "lucide-react";
+import { useState } from "react";
 
+import { ProductMark, Sidebar } from "@/components/layout/sidebar";
+import { TopBar } from "@/components/layout/top-bar";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { SidebarNav, type SidebarNavItem } from "@/components/layout/sidebar-nav";
-import {
-  TopBar,
-  type CurrentUserSummary,
-  type OrganizationOption,
-} from "@/components/layout/top-bar";
 import { cn } from "@/lib/utils";
+import type { User } from "@/types/auth";
+import type { Workspace } from "@/types/workspace";
 
 interface AppShellProps {
   children: React.ReactNode;
-  organizations?: OrganizationOption[];
-  selectedOrganizationId?: string | null;
-  onOrganizationChange?: (organizationId: string) => void;
-  user?: CurrentUserSummary | null;
-  onLogout?: () => void;
-  navItems?: SidebarNavItem[];
-  environmentLabel?: string;
+  workspaces: Workspace[];
+  activeWorkspace: Workspace | null;
+  onWorkspaceSelect: (workspaceId: string) => void;
+  onCreateWorkspace?: () => void;
+  user: User | null;
+  onSignOut: () => void;
+  /** Chat needs the full viewport width; most pages read better constrained. */
+  fullBleed?: boolean;
   contentClassName?: string;
 }
 
-function ProductMark() {
-  return (
-    <div className="flex h-16 items-center gap-3 border-b border-zinc-200 px-5">
-      <span className="flex size-8 items-center justify-center rounded-md bg-zinc-900 text-white">
-        <DatabaseZap aria-hidden="true" className="size-[18px]" />
-      </span>
-      <div className="min-w-0 leading-tight">
-        <span className="block truncate text-sm font-semibold text-zinc-950">
-          AI Support Agent
-        </span>
-        <span className="block text-xs text-zinc-500">Knowledge workspace</span>
-      </div>
-    </div>
-  );
-}
-
-function SidebarContents({
-  navItems,
-  onNavigate,
-}: {
-  navItems?: SidebarNavItem[];
-  onNavigate?: () => void;
-}) {
+function SidebarPanel({ onNavigate }: { onNavigate?: () => void }) {
   return (
     <>
       <ProductMark />
-      <div className="flex-1 overflow-y-auto px-3 py-5">
-        <SidebarNav items={navItems} onNavigate={onNavigate} />
-      </div>
-      <div className="border-t border-zinc-200 px-5 py-4">
-        <p className="text-xs leading-5 text-zinc-500">
-          Grounded answers from your indexed support knowledge.
-        </p>
+      <div className="flex-1 overflow-y-auto py-3">
+        <Sidebar onNavigate={onNavigate} />
       </div>
     </>
   );
@@ -69,53 +40,61 @@ function SidebarContents({
 
 export function AppShell({
   children,
-  organizations,
-  selectedOrganizationId,
-  onOrganizationChange,
+  workspaces,
+  activeWorkspace,
+  onWorkspaceSelect,
+  onCreateWorkspace,
   user,
-  onLogout,
-  navItems,
-  environmentLabel,
+  onSignOut,
+  fullBleed = false,
   contentClassName,
 }: AppShellProps) {
-  const [navigationOpen, setNavigationOpen] = React.useState(false);
+  const [navigationOpen, setNavigationOpen] = useState(false);
 
   return (
-    <div className="min-h-dvh bg-zinc-50 text-zinc-950">
-      <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 flex-col border-r border-zinc-200 bg-white lg:flex">
-        <SidebarContents navItems={navItems} />
+    <div className="min-h-dvh bg-background">
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-md focus:bg-primary focus:px-4 focus:py-2 focus:text-sm focus:text-primary-foreground"
+      >
+        Skip to content
+      </a>
+
+      <aside className="fixed inset-y-0 left-0 z-40 hidden w-60 flex-col border-r border-border bg-surface lg:flex">
+        <SidebarPanel />
       </aside>
 
+      {/* The sidebar becomes a drawer below the lg breakpoint. */}
       <Dialog open={navigationOpen} onOpenChange={setNavigationOpen}>
         <DialogContent
           showClose
-          className="left-0 top-0 flex h-dvh max-h-none w-[min(20rem,calc(100%-3rem))] max-w-none translate-x-0 translate-y-0 flex-col gap-0 rounded-none border-y-0 border-l-0 p-0 lg:hidden"
+          className="left-0 top-0 flex h-dvh max-h-none w-[min(17rem,calc(100%-3rem))] max-w-none translate-x-0 translate-y-0 flex-col gap-0 rounded-none border-y-0 border-l-0 p-0 lg:hidden"
         >
-          <DialogTitle className="sr-only">Dashboard navigation</DialogTitle>
+          <DialogTitle className="sr-only">Navigation</DialogTitle>
           <DialogDescription className="sr-only">
-            Navigate between product areas.
+            Move between areas of the app.
           </DialogDescription>
-          <SidebarContents
-            navItems={navItems}
-            onNavigate={() => setNavigationOpen(false)}
-          />
+          <SidebarPanel onNavigate={() => setNavigationOpen(false)} />
         </DialogContent>
       </Dialog>
 
-      <div className="min-w-0 lg:pl-64">
+      <div className="min-w-0 lg:pl-60">
         <TopBar
-          organizations={organizations}
-          selectedOrganizationId={selectedOrganizationId}
-          onOrganizationChange={onOrganizationChange}
+          workspaces={workspaces}
+          activeWorkspace={activeWorkspace}
+          onWorkspaceSelect={onWorkspaceSelect}
+          onCreateWorkspace={onCreateWorkspace}
           user={user}
-          onLogout={onLogout}
+          onSignOut={onSignOut}
           onOpenNavigation={() => setNavigationOpen(true)}
-          environmentLabel={environmentLabel}
         />
+
         <main
           id="main-content"
           className={cn(
-            "mx-auto w-full max-w-[1440px] px-4 py-6 sm:px-6 sm:py-8 lg:px-8",
+            fullBleed
+              ? "w-full"
+              : "mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 sm:py-8",
             contentClassName,
           )}
         >

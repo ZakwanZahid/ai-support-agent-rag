@@ -41,21 +41,21 @@ export function DocumentCard({
   return (
     <Card>
       <CardHeader className="flex-row items-start gap-3">
-        <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-zinc-100 text-zinc-600">
+        <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-surface-hover text-foreground-muted">
           <FileText aria-hidden="true" className="size-4" />
         </span>
         <div className="min-w-0 flex-1">
-          <h3 className="truncate text-sm font-semibold text-zinc-950">
+          <h3 className="truncate text-sm font-semibold text-foreground">
             {getDocumentTitle(document)}
           </h3>
-          <p className="mt-1 truncate text-xs text-zinc-500">
+          <p className="mt-1 truncate text-xs text-foreground-subtle">
             {document.knowledge_base_name || "Knowledge base"}
           </p>
         </div>
         <StatusBadge status={document.status} />
       </CardHeader>
       <CardContent className="space-y-4">
-        <p className="text-xs text-zinc-500">
+        <p className="text-xs text-foreground-subtle">
           Uploaded {formatDate(document.uploaded_at ?? document.created_at)}
         </p>
         <DocumentStatusActions
@@ -101,10 +101,10 @@ export function DocumentList({
           />
         ))}
       </div>
-      <div className="hidden overflow-hidden rounded-lg border border-zinc-200 bg-white md:block">
+      <div className="hidden overflow-hidden rounded-lg border border-border bg-white md:block">
         <div className="overflow-x-auto">
           <table className="w-full min-w-[760px] text-left text-sm">
-            <thead className="border-b border-zinc-200 bg-zinc-50 text-xs font-medium uppercase tracking-wide text-zinc-500">
+            <thead className="border-b border-border bg-surface-subtle text-xs font-medium uppercase tracking-wide text-foreground-subtle">
               <tr>
                 <th className="px-5 py-3">Document</th>
                 <th className="px-5 py-3">Knowledge base</th>
@@ -113,21 +113,21 @@ export function DocumentList({
                 <th className="px-5 py-3 text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-zinc-100">
+            <tbody className="divide-y divide-border">
               {documents.map((document) => (
-                <tr key={document.id} className="hover:bg-zinc-50/70">
-                  <td className="px-5 py-4 font-medium text-zinc-900">
+                <tr key={document.id} className="hover:bg-surface-hover/70">
+                  <td className="px-5 py-4 font-medium text-foreground">
                     <span className="block max-w-64 truncate">
                       {getDocumentTitle(document)}
                     </span>
                   </td>
-                  <td className="px-5 py-4 text-zinc-600">
+                  <td className="px-5 py-4 text-foreground-muted">
                     {document.knowledge_base_name || "—"}
                   </td>
                   <td className="px-5 py-4">
                     <StatusBadge status={document.status} />
                   </td>
-                  <td className="px-5 py-4 text-zinc-600">
+                  <td className="px-5 py-4 text-foreground-muted">
                     {formatDate(document.uploaded_at ?? document.created_at)}
                   </td>
                   <td className="px-5 py-4">

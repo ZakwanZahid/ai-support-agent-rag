@@ -21,13 +21,13 @@ import {
 import { listKnowledgeBases } from "@/lib/api/knowledge-bases";
 import { queryKeys } from "@/lib/query-keys";
 import { formatDate } from "@/lib/utils";
-import { useDashboard } from "@/hooks/use-dashboard";
+import { useWorkspace } from "@/hooks/use-workspace";
 
 export default function ConversationDetailPage() {
   const params = useParams<{ conversationId: string }>();
   const conversationId = params.conversationId;
-  const { selectedOrganization } = useDashboard();
-  const organizationId = selectedOrganization?.id;
+  const { activeWorkspace } = useWorkspace();
+  const organizationId = activeWorkspace?.id;
   const queryClient = useQueryClient();
   const [pendingQuestion, setPendingQuestion] = useState<string | null>(null);
 
@@ -64,7 +64,7 @@ export default function ConversationDetailPage() {
     onSettled: () => setPendingQuestion(null),
   });
 
-  if (!selectedOrganization) {
+  if (!activeWorkspace) {
     return (
       <EmptyState
         icon={MessagesSquare}

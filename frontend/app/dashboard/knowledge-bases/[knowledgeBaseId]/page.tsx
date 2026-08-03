@@ -41,7 +41,7 @@ import {
 import { getKnowledgeBase } from "@/lib/api/knowledge-bases";
 import { queryKeys } from "@/lib/query-keys";
 import { formatDate } from "@/lib/utils";
-import { useDashboard } from "@/hooks/use-dashboard";
+import { useWorkspace } from "@/hooks/use-workspace";
 import { useDocumentActions } from "@/hooks/use-document-actions";
 
 const lifecycle = [
@@ -54,8 +54,8 @@ const lifecycle = [
 export default function KnowledgeBaseDetailPage() {
   const params = useParams<{ knowledgeBaseId: string }>();
   const knowledgeBaseId = params.knowledgeBaseId;
-  const { selectedOrganization } = useDashboard();
-  const organizationId = selectedOrganization?.id;
+  const { activeWorkspace } = useWorkspace();
+  const organizationId = activeWorkspace?.id;
   const queryClient = useQueryClient();
   const [selectedDocument, setSelectedDocument] =
     useState<DocumentResponse | null>(null);
@@ -148,23 +148,23 @@ export default function KnowledgeBaseDetailPage() {
 
       <section aria-labelledby="lifecycle-heading">
         <div className="mb-3 flex items-center justify-between gap-3">
-          <h2 id="lifecycle-heading" className="text-sm font-semibold text-zinc-950">
+          <h2 id="lifecycle-heading" className="text-sm font-semibold text-foreground">
             Document lifecycle
           </h2>
-          <p className="text-xs text-zinc-500">Upload → ingest → index → chat</p>
+          <p className="text-xs text-foreground-subtle">Upload → ingest → index → chat</p>
         </div>
         <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
           {lifecycle.map(({ title, description, icon: Icon }, index) => (
             <Card key={title}>
               <CardContent className="flex items-start gap-3 p-4">
-                <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-zinc-100 text-zinc-700">
+                <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-surface-hover text-foreground-muted">
                   <Icon aria-hidden="true" className="size-4" />
                 </span>
                 <div>
-                  <p className="text-sm font-medium text-zinc-950">
+                  <p className="text-sm font-medium text-foreground">
                     {index + 1}. {title}
                   </p>
-                  <p className="mt-1 text-xs leading-5 text-zinc-500">
+                  <p className="mt-1 text-xs leading-5 text-foreground-subtle">
                     {description}
                   </p>
                 </div>
@@ -177,10 +177,10 @@ export default function KnowledgeBaseDetailPage() {
       <section className="grid gap-6 xl:grid-cols-[minmax(18rem,0.7fr)_minmax(0,1.7fr)]">
         <Card className="h-fit">
           <CardHeader>
-            <h2 className="text-base font-semibold text-zinc-950">
+            <h2 className="text-base font-semibold text-foreground">
               Upload a source
             </h2>
-            <p className="text-sm leading-6 text-zinc-600">
+            <p className="text-sm leading-6 text-foreground-muted">
               Add a text, Markdown, PDF, or Word document to this knowledge base.
             </p>
           </CardHeader>
@@ -198,8 +198,8 @@ export default function KnowledgeBaseDetailPage() {
         <div className="min-w-0">
           <div className="mb-4 flex items-center justify-between">
             <div>
-              <h2 className="text-base font-semibold text-zinc-950">Documents</h2>
-              <p className="mt-1 text-sm text-zinc-600">
+              <h2 className="text-base font-semibold text-foreground">Documents</h2>
+              <p className="mt-1 text-sm text-foreground-muted">
                 {documents.length} {documents.length === 1 ? "source" : "sources"}
               </p>
             </div>
@@ -245,26 +245,26 @@ export default function KnowledgeBaseDetailPage() {
           {selectedDocument ? (
             <dl className="grid gap-4 text-sm sm:grid-cols-2">
               <div>
-                <dt className="text-zinc-500">Status</dt>
+                <dt className="text-foreground-subtle">Status</dt>
                 <dd className="mt-1">
                   <StatusBadge status={selectedDocument.status} />
                 </dd>
               </div>
               <div>
-                <dt className="text-zinc-500">Uploaded</dt>
-                <dd className="mt-1 font-medium text-zinc-900">
+                <dt className="text-foreground-subtle">Uploaded</dt>
+                <dd className="mt-1 font-medium text-foreground">
                   {formatDate(selectedDocument.created_at)}
                 </dd>
               </div>
               <div>
-                <dt className="text-zinc-500">Filename</dt>
-                <dd className="mt-1 break-words font-medium text-zinc-900">
+                <dt className="text-foreground-subtle">Filename</dt>
+                <dd className="mt-1 break-words font-medium text-foreground">
                   {selectedDocument.file_name ?? "Not available"}
                 </dd>
               </div>
               <div>
-                <dt className="text-zinc-500">Source type</dt>
-                <dd className="mt-1 capitalize font-medium text-zinc-900">
+                <dt className="text-foreground-subtle">Source type</dt>
+                <dd className="mt-1 capitalize font-medium text-foreground">
                   {selectedDocument.source_type}
                 </dd>
               </div>

@@ -1,46 +1,19 @@
+import type { UUID } from "@/types/api";
+import type {
+  DocumentSourceType,
+  DocumentStatus,
+  DocumentTaskAccepted,
+  DocumentUpload,
+  KnowledgeDocument,
+} from "@/types/document";
+
 import { apiClient } from "./client";
-import type { ISODateString, UUID } from "./types";
 
-export type DocumentStatus =
-  | "pending"
-  | "processing"
-  | "processed"
-  | "indexed"
-  | "failed";
-
-export type DocumentSourceType = "upload" | "url" | "manual";
-
-export interface DocumentResponse {
-  id: UUID;
-  organization_id: UUID;
-  knowledge_base_id: UUID;
-  title: string;
-  source_type: DocumentSourceType;
-  file_name: string | null;
-  file_path: string | null;
-  mime_type: string | null;
-  status: DocumentStatus;
-  error_message: string | null;
-  created_at: ISODateString;
-  updated_at: ISODateString;
-}
-
-export interface UploadDocumentInput {
-  file: File;
-  title?: string | null;
-}
-
-export interface IngestionScheduledResponse {
-  document_id: UUID;
-  status: string;
-  message: string;
-}
-
-export interface IndexingResponse {
-  document_id: UUID;
-  status: string;
-  message: string;
-}
+export type { DocumentSourceType, DocumentStatus };
+export type DocumentResponse = KnowledgeDocument;
+export type UploadDocumentInput = DocumentUpload;
+export type IngestionScheduledResponse = DocumentTaskAccepted;
+export type IndexingResponse = DocumentTaskAccepted;
 
 function organizationPath(organizationId: UUID): string {
   return `/api/v1/organizations/${encodeURIComponent(organizationId)}`;

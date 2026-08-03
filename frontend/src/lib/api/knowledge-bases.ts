@@ -1,19 +1,10 @@
+import type { UUID } from "@/types/api";
+import type { KnowledgeSpace, KnowledgeSpaceDraft } from "@/types/knowledge";
+
 import { apiClient } from "./client";
-import type { ISODateString, UUID } from "./types";
 
-export interface KnowledgeBaseCreate {
-  name: string;
-  description?: string | null;
-}
-
-export interface KnowledgeBaseResponse {
-  id: UUID;
-  organization_id: UUID;
-  name: string;
-  description: string | null;
-  created_at: ISODateString;
-  updated_at: ISODateString;
-}
+export type KnowledgeBaseCreate = KnowledgeSpaceDraft;
+export type KnowledgeBaseResponse = KnowledgeSpace;
 
 function knowledgeBasesPath(organizationId: UUID): string {
   return `/api/v1/organizations/${encodeURIComponent(

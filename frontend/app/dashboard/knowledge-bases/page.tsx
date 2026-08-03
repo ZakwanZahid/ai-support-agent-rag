@@ -12,15 +12,15 @@ import { KnowledgeBaseCard } from "@/components/kb/knowledge-base-card";
 import { CreateOrganizationDialog } from "@/components/organizations/create-organization-dialog";
 import { listKnowledgeBases } from "@/lib/api/knowledge-bases";
 import { queryKeys } from "@/lib/query-keys";
-import { useDashboard } from "@/hooks/use-dashboard";
+import { useWorkspace } from "@/hooks/use-workspace";
 
 export default function KnowledgeBasesPage() {
   const {
-    selectedOrganization,
-    refetchOrganizations,
-    setSelectedOrganizationId,
-  } = useDashboard();
-  const organizationId = selectedOrganization?.id;
+    activeWorkspace,
+    refetch: refetchWorkspaces,
+    setActiveWorkspace,
+  } = useWorkspace();
+  const organizationId = activeWorkspace?.id;
   const knowledgeBasesQuery = useQuery({
     queryKey: queryKeys.knowledgeBases(organizationId),
     queryFn: () => listKnowledgeBases(organizationId!),
@@ -40,7 +40,7 @@ export default function KnowledgeBasesPage() {
         }
       />
 
-      {!selectedOrganization ? (
+      {!activeWorkspace ? (
         <EmptyState
           icon={BookOpen}
           title="An organization is required"
@@ -48,8 +48,8 @@ export default function KnowledgeBasesPage() {
           action={
             <CreateOrganizationDialog
               onCreated={async (createdId) => {
-                await refetchOrganizations();
-                setSelectedOrganizationId(createdId);
+                await refetchWorkspaces();
+                setActiveWorkspace(createdId);
               }}
             />
           }
@@ -64,7 +64,7 @@ export default function KnowledgeBasesPage() {
           title="No knowledge bases yet"
           description="Create one for policies, product guides, FAQs, or another focused support domain."
           action={
-            <CreateKnowledgeBaseDialog organizationId={selectedOrganization.id} />
+            <CreateKnowledgeBaseDialog organizationId={activeWorkspace.id} />
           }
         />
       ) : (
