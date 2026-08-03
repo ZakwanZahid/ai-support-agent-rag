@@ -1,7 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import { LoaderCircle } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -9,6 +9,7 @@ import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 
+import { AuthBrandMark } from "@/components/marketing/auth-brand-mark";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
@@ -21,8 +22,8 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { getAPIErrorMessage } from "@/lib/api/client";
-import { loginUser } from "@/lib/api/auth";
-import { queryKeys } from "@/lib/query-keys";
+import { useAuth } from "@/lib/auth/auth-context";
+import { resolvePostAuthDestination } from "@/lib/auth/post-auth-route";
 
 const loginSchema = z.object({
   email: z.string().trim().email("Enter a valid email address."),
@@ -33,35 +34,31 @@ type LoginValues = z.infer<typeof loginSchema>;
 
 export default function LoginPage() {
   const router = useRouter();
-  const queryClient = useQueryClient();
+  const { signIn } = useAuth();
+
   const form = useForm<LoginValues>({
     resolver: zodResolver(loginSchema),
     defaultValues: { email: "", password: "" },
   });
 
   const loginMutation = useMutation({
-    mutationFn: loginUser,
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: queryKeys.currentUser });
+    mutationFn: signIn,
+    onSuccess: () => {
       toast.success("Welcome back.");
-      router.replace("/dashboard");
+      router.replace(resolvePostAuthDestination());
     },
   });
 
   return (
     <div>
-      <div className="mb-8 lg:hidden">
-        <p className="text-sm font-semibold text-foreground">
-          AI Support Agent RAG
-        </p>
-      </div>
+      <AuthBrandMark />
+
       <div className="mb-7">
-        <p className="text-sm font-medium text-foreground-subtle">Welcome back</p>
-        <h2 className="mt-2 text-3xl font-semibold tracking-[-0.035em] text-foreground">
-          Sign in to your workspace
+        <h2 className="text-3xl font-semibold tracking-[-0.03em] text-foreground">
+          Welcome back.
         </h2>
         <p className="mt-3 text-sm leading-6 text-foreground-muted">
-          Continue managing knowledge and grounded support conversations.
+          Sign in to pick up where you left off.
         </p>
       </div>
 
@@ -132,17 +129,13 @@ export default function LoginPage() {
       </Form>
 
       <p className="mt-6 text-center text-sm text-foreground-muted">
-        New to the workspace?{" "}
+        New to SupportMind?{" "}
         <Link
           href="/register"
           className="font-medium text-foreground underline-offset-4 hover:underline"
         >
           Create an account
         </Link>
-      </p>
-      <p className="mt-8 text-center text-xs leading-5 text-foreground-subtle">
-        MVP sessions are stored in this browser. Production deployments should
-        use secure httpOnly cookies.
       </p>
     </div>
   );

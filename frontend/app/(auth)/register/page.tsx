@@ -9,6 +9,7 @@ import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 
+import { AuthBrandMark } from "@/components/marketing/auth-brand-mark";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
@@ -20,8 +21,9 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { loginUser, registerUser } from "@/lib/api/auth";
 import { getAPIErrorMessage } from "@/lib/api/client";
+import { useAuth } from "@/lib/auth/auth-context";
+import { resolvePostAuthDestination } from "@/lib/auth/post-auth-route";
 
 const registerSchema = z.object({
   full_name: z.string().trim().max(255).optional(),
@@ -36,39 +38,32 @@ type RegisterValues = z.infer<typeof registerSchema>;
 
 export default function RegisterPage() {
   const router = useRouter();
+  const { signUp } = useAuth();
+
   const form = useForm<RegisterValues>({
     resolver: zodResolver(registerSchema),
     defaultValues: { full_name: "", email: "", password: "" },
   });
 
   const registerMutation = useMutation({
-    mutationFn: async (values: RegisterValues) => {
-      await registerUser({
-        ...values,
-        full_name: values.full_name || null,
-      });
-      return loginUser({ email: values.email, password: values.password });
-    },
+    mutationFn: (values: RegisterValues) =>
+      signUp({ ...values, full_name: values.full_name || null }),
     onSuccess: () => {
       toast.success("Account created.");
-      router.replace("/dashboard");
+      router.replace(resolvePostAuthDestination());
     },
   });
 
   return (
     <div>
-      <div className="mb-8 lg:hidden">
-        <p className="text-sm font-semibold text-foreground">
-          AI Support Agent RAG
-        </p>
-      </div>
+      <AuthBrandMark />
+
       <div className="mb-7">
-        <p className="text-sm font-medium text-foreground-subtle">Create your workspace</p>
-        <h2 className="mt-2 text-3xl font-semibold tracking-[-0.035em] text-foreground">
-          Start with a secure account
+        <h2 className="text-3xl font-semibold tracking-[-0.03em] text-foreground">
+          Create your AI support workspace.
         </h2>
         <p className="mt-3 text-sm leading-6 text-foreground-muted">
-          You can create an organization and knowledge base after signing in.
+          We&rsquo;ll walk you through setting it up once you&rsquo;re in.
         </p>
       </div>
 
@@ -136,6 +131,7 @@ export default function RegisterPage() {
                   <Input
                     type="password"
                     autoComplete="new-password"
+                    placeholder="At least 8 characters"
                     disabled={registerMutation.isPending}
                     {...field}
                   />

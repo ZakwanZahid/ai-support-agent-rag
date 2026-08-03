@@ -10,6 +10,8 @@ import {
   useSyncExternalStore,
 } from "react";
 
+import { useIsHydrated } from "@/hooks/use-is-hydrated";
+
 import {
   getCurrentUser,
   loginUser,
@@ -60,6 +62,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     getServerTokenSnapshot,
   );
 
+  // The first client render reuses the server snapshot, where no token can
+  // exist. Without this, a signed-in user looks signed out for one render,
+  // which is long enough for route guards to bounce them to the login page on
+  // every reload.
+  const hydrated = useIsHydrated();
+
   const userQuery = useQuery({
     queryKey: queryKeys.currentUser,
     queryFn: getCurrentUser,
@@ -73,8 +81,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     async (credentials: { email: string; password: string }) => {
       await loginUser(credentials);
       // The token changed, so any cached data belongs to the previous session.
-      queryClient.clear();
-      await queryClient.invalidateQueries({ queryKey: queryKeys.currentUser });
+      // resetQueries rather than clear: clear() removes queries out from under
+      // mounted observers, which then never receive the refetch result and sit
+      // pending forever. reset discards the same data and refetches in place.
+      await queryClient.resetQueries();
     },
     [queryClient],
   );
@@ -95,17 +105,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = useCallback(() => {
     clearAccessToken();
-    queryClient.clear();
+    // Same reasoning as signIn: reset keeps observers attached, so signing back
+    // in during the same page session still works.
+    void queryClient.resetQueries();
     router.replace("/login");
   }, [queryClient, router]);
 
-  const status: AuthStatus = !hasToken
-    ? "unauthenticated"
-    : userQuery.isSuccess
-      ? "authenticated"
-      : userQuery.isError
-        ? "unauthenticated"
-        : "loading";
+  const status: AuthStatus = !hydrated
+    ? "loading"
+    : !hasToken
+      ? "unauthenticated"
+      : userQuery.isSuccess
+        ? "authenticated"
+        : userQuery.isError
+          ? "unauthenticated"
+          : "loading";
 
   const value = useMemo<AuthContextValue>(
     () => ({
