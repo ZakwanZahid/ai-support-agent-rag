@@ -77,6 +77,29 @@ export async function ingestDocument(
   return response.data;
 }
 
+/**
+ * Take a document from uploaded to ready in one call.
+ *
+ * The backend chains extraction and indexing, so the UI exposes a single
+ * "Prepare for chat" action and polls the document until it reports ready or
+ * failed. `ingestDocument` and `indexDocument` remain for the individual
+ * steps but are not part of the normal user flow.
+ */
+export async function prepareDocument(
+  organizationId: UUID,
+  documentId: UUID,
+  force = false,
+): Promise<DocumentTaskAccepted> {
+  const response = await apiClient.post<DocumentTaskAccepted>(
+    `${organizationPath(organizationId)}/documents/${encodeURIComponent(
+      documentId,
+    )}/prepare`,
+    undefined,
+    { params: force ? { force: true } : undefined },
+  );
+  return response.data;
+}
+
 export async function indexDocument(
   organizationId: UUID,
   documentId: UUID,
@@ -96,6 +119,7 @@ export const documentsApi = {
   list: listDocuments,
   get: getDocument,
   upload: uploadDocument,
+  prepare: prepareDocument,
   ingest: ingestDocument,
   index: indexDocument,
 };

@@ -23,7 +23,12 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = Field(default=60, alias="ACCESS_TOKEN_EXPIRE_MINUTES", gt=0)
     upload_dir: Path = Field(default=Path("storage/uploads"), alias="UPLOAD_DIR")
     max_upload_size_mb: int = Field(default=10, alias="MAX_UPLOAD_SIZE_MB", gt=0)
-    auto_ingest_on_upload: bool = Field(default=True, alias="AUTO_INGEST_ON_UPLOAD")
+    # Off by default: preparation is an explicit action via the prepare
+    # endpoint, which owns the whole extract-then-index lifecycle. Starting
+    # ingestion automatically on upload leaves the document mid-flight, so a
+    # prepare call moments later conflicts with work already in progress and
+    # the document stalls after extraction with nothing to index it.
+    auto_ingest_on_upload: bool = Field(default=False, alias="AUTO_INGEST_ON_UPLOAD")
     chunk_size: int = Field(default=1200, alias="CHUNK_SIZE", gt=0)
     chunk_overlap: int = Field(default=200, alias="CHUNK_OVERLAP", ge=0)
     openai_api_key: str | None = Field(default=None, alias="OPENAI_API_KEY")

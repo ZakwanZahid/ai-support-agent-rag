@@ -6,14 +6,17 @@ import { useEffect } from "react";
 import { ErrorState } from "@/components/common/error-state";
 import { LoadingSkeleton } from "@/components/common/loading-skeleton";
 import { AppShell } from "@/components/layout/app-shell";
+import { useOnboardingStatus } from "@/hooks/use-onboarding-status";
 import { useWorkspace } from "@/hooks/use-workspace";
 import { useAuth } from "@/lib/auth/auth-context";
 
 /**
- * Authentication and workspace gate for everything under /dashboard.
+ * Authentication and setup gate for everything under /dashboard.
  *
- * Renders the application shell once the session and workspace list have
- * resolved, and sends unauthenticated visitors to the login page.
+ * Renders the application shell once the session and workspace have resolved.
+ * Unauthenticated visitors go to login; anyone without a workspace or a
+ * knowledge space goes to onboarding rather than landing on a dashboard that
+ * has nothing to show them.
  */
 export function DashboardShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -22,10 +25,10 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
     workspaces,
     activeWorkspace,
     setActiveWorkspace,
-    isLoading: workspacesLoading,
     isError: workspacesError,
     refetch: refetchWorkspaces,
   } = useWorkspace();
+  const onboarding = useOnboardingStatus();
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -33,7 +36,18 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
     }
   }, [router, status]);
 
-  if (status !== "authenticated" || workspacesLoading) {
+  useEffect(() => {
+    if (
+      status === "authenticated" &&
+      !onboarding.isLoading &&
+      !onboarding.isError &&
+      onboarding.needsOnboarding
+    ) {
+      router.replace("/onboarding");
+    }
+  }, [onboarding, router, status]);
+
+  if (status !== "authenticated" || onboarding.isLoading) {
     return (
       <main className="mx-auto min-h-dvh w-full max-w-6xl px-4 py-10 sm:px-6">
         <LoadingSkeleton variant="detail" rows={3} />
@@ -41,7 +55,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
     );
   }
 
-  if (workspacesError) {
+  if (workspacesError || onboarding.isError) {
     return (
       <main className="mx-auto flex min-h-dvh w-full max-w-xl items-center px-4 py-10">
         <ErrorState
@@ -49,6 +63,15 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
           message="Check that the API is running, then try again."
           onRetry={() => void refetchWorkspaces()}
         />
+      </main>
+    );
+  }
+
+  // Redirecting; rendering the empty shell underneath would flash.
+  if (onboarding.needsOnboarding) {
+    return (
+      <main className="mx-auto min-h-dvh w-full max-w-6xl px-4 py-10 sm:px-6">
+        <LoadingSkeleton variant="detail" rows={3} />
       </main>
     );
   }
