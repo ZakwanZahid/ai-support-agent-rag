@@ -10,6 +10,10 @@ class Settings(BaseSettings):
     app_env: str = Field(default="local", alias="APP_ENV")
     debug: bool = Field(default=False, alias="DEBUG")
     api_v1_prefix: str = Field(default="/api/v1", alias="API_V1_PREFIX")
+    frontend_origin: str = Field(
+        default="http://localhost:3000",
+        alias="FRONTEND_ORIGIN",
+    )
     database_url: str = Field(
         default="postgresql+psycopg://postgres:postgres@localhost:5432/ai_support_agent_rag",
         alias="DATABASE_URL",
