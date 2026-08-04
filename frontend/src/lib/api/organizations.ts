@@ -30,8 +30,21 @@ export async function getOrganization(
   return response.data;
 }
 
+/** Renames a workspace. The slug is fixed and cannot be changed. */
+export async function updateOrganization(
+  organizationId: UUID,
+  data: { name: string },
+): Promise<Workspace> {
+  const response = await apiClient.patch<Workspace>(
+    `/api/v1/organizations/${encodeURIComponent(organizationId)}`,
+    data,
+  );
+  return response.data;
+}
+
 export const organizationsApi = {
   create: createOrganization,
   list: listOrganizations,
   get: getOrganization,
+  update: updateOrganization,
 };

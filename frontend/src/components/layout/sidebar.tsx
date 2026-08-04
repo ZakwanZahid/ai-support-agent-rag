@@ -55,7 +55,6 @@ export const navItems: NavItem[] = [
     label: "Settings",
     href: "/dashboard/settings",
     icon: Settings,
-    comingSoon: true,
   },
 ];
 
