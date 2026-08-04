@@ -48,7 +48,7 @@ export function RecentChatThreads({
             <Button asChild size="sm" className="mt-4">
               <Link
                 href={
-                  canStartChat ? "/dashboard/chat" : "/dashboard/knowledge-bases"
+                  canStartChat ? "/dashboard/chat" : "/dashboard/knowledge"
                 }
               >
                 {canStartChat ? "Start chat" : "Add knowledge"}

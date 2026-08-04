@@ -23,10 +23,7 @@ export interface NavItem {
   match?: (pathname: string) => boolean;
 }
 
-/**
- * Labels use product language throughout. Some hrefs still point at the
- * routes as they exist today; they move alongside the pages themselves.
- */
+/** Labels and routes both use product language. */
 export const navItems: NavItem[] = [
   {
     label: "Dashboard",
@@ -36,7 +33,7 @@ export const navItems: NavItem[] = [
   },
   {
     label: "Knowledge",
-    href: "/dashboard/knowledge-bases",
+    href: "/dashboard/knowledge",
     icon: BookOpen,
   },
   {

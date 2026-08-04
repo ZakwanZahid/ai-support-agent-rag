@@ -27,13 +27,13 @@ export function SetupChecklist({
     {
       label: "Create a knowledge space",
       done: hasKnowledgeSpace,
-      href: "/dashboard/knowledge-bases",
+      href: "/dashboard/knowledge",
       action: "Create one",
     },
     {
       label: "Add your first document",
       done: hasDocument,
-      href: "/dashboard/knowledge-bases",
+      href: "/dashboard/knowledge",
       action: "Add knowledge",
     },
     {

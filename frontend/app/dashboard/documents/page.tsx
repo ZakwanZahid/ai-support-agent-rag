@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { Files, Upload } from "lucide-react";
+import { FileText, Search } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 
@@ -9,230 +9,214 @@ import { EmptyState } from "@/components/common/empty-state";
 import { ErrorState } from "@/components/common/error-state";
 import { LoadingSkeleton } from "@/components/common/loading-skeleton";
 import { PageHeader } from "@/components/common/page-header";
-import { StatusBadge } from "@/components/common/status-badge";
-import {
-  DocumentList,
-  type DocumentSummary,
-} from "@/components/documents/document-card";
+import { DocumentMobileCard } from "@/components/documents/document-mobile-card";
+import { DocumentTable } from "@/components/documents/document-table";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { listDocuments, type DocumentResponse } from "@/lib/api/documents";
+import { Input } from "@/components/ui/input";
+import { useDocuments } from "@/hooks/use-documents";
+import { useWorkspace } from "@/hooks/use-workspace";
 import { listKnowledgeBases } from "@/lib/api/knowledge-bases";
 import { queryKeys } from "@/lib/query-keys";
-import { formatDate } from "@/lib/utils";
-import { useWorkspace } from "@/hooks/use-workspace";
-import { useDocumentActions } from "@/hooks/use-document-actions";
+import {
+  hasDocumentFailed,
+  isDocumentInProgress,
+  isDocumentReady,
+} from "@/lib/terminology";
+import { cn } from "@/lib/utils";
 
-const statuses = [
-  "all",
-  "pending",
-  "processing",
-  "processed",
-  "indexed",
-  "failed",
+const FILTERS = [
+  { key: "all", label: "All" },
+  { key: "ready", label: "Ready" },
+  { key: "processing", label: "Processing" },
+  { key: "failed", label: "Failed" },
 ] as const;
+
+type FilterKey = (typeof FILTERS)[number]["key"];
 
 export default function DocumentsPage() {
   const { activeWorkspace } = useWorkspace();
-  const organizationId = activeWorkspace?.id;
-  const [statusFilter, setStatusFilter] =
-    useState<(typeof statuses)[number]>("all");
-  const [selectedDocument, setSelectedDocument] =
-    useState<DocumentResponse | null>(null);
+  const workspaceId = activeWorkspace?.id ?? null;
 
-  const knowledgeBasesQuery = useQuery({
-    queryKey: queryKeys.knowledgeBases(organizationId),
-    queryFn: () => listKnowledgeBases(organizationId!),
-    enabled: Boolean(organizationId),
-  });
-  const documentsQuery = useQuery({
-    queryKey: queryKeys.documents(organizationId),
-    queryFn: () => listDocuments(organizationId!),
-    enabled: Boolean(organizationId),
-    refetchInterval: (query) =>
-      query.state.data?.some((document) => document.status === "processing")
-        ? 2_000
-        : false,
-  });
-  const documentActions = useDocumentActions(organizationId ?? "");
+  const [filter, setFilter] = useState<FilterKey>("all");
+  const [search, setSearch] = useState("");
 
-  const knowledgeBaseNames = useMemo(
+  const {
+    documents,
+    isLoading,
+    isError,
+    refetch,
+    prepare,
+    preparingDocumentId,
+  } = useDocuments({ workspaceId });
+
+  const knowledgeSpacesQuery = useQuery({
+    queryKey: queryKeys.knowledgeBases(workspaceId),
+    queryFn: () => listKnowledgeBases(workspaceId!),
+    enabled: Boolean(workspaceId),
+  });
+
+  const knowledgeSpaceNames = useMemo(
     () =>
       new Map(
-        (knowledgeBasesQuery.data ?? []).map((knowledgeBase) => [
-          knowledgeBase.id,
-          knowledgeBase.name,
-        ]),
+        (knowledgeSpacesQuery.data ?? []).map((space) => [space.id, space.name]),
       ),
-    [knowledgeBasesQuery.data],
+    [knowledgeSpacesQuery.data],
   );
-  const documents: DocumentSummary[] = (documentsQuery.data ?? [])
-    .filter(
-      (document) =>
-        statusFilter === "all" || document.status === statusFilter,
-    )
-    .map((document) => ({
-      ...document,
-      knowledge_base_name:
-        knowledgeBaseNames.get(document.knowledge_base_id) ?? "Knowledge base",
-    }));
+
+  const visibleDocuments = useMemo(() => {
+    const term = search.trim().toLowerCase();
+
+    return documents.filter((document) => {
+      const matchesFilter =
+        filter === "all" ||
+        (filter === "ready" && isDocumentReady(document.status)) ||
+        (filter === "processing" && isDocumentInProgress(document.status)) ||
+        (filter === "failed" && hasDocumentFailed(document.status));
+
+      if (!matchesFilter) return false;
+      if (!term) return true;
+
+      // Search covers the knowledge space name too, since that is often how
+      // people remember where a document lives.
+      const spaceName =
+        knowledgeSpaceNames.get(document.knowledge_base_id) ?? "";
+      return (
+        document.title.toLowerCase().includes(term) ||
+        spaceName.toLowerCase().includes(term)
+      );
+    });
+  }, [documents, filter, knowledgeSpaceNames, search]);
+
+  const counts = useMemo(
+    () => ({
+      all: documents.length,
+      ready: documents.filter((d) => isDocumentReady(d.status)).length,
+      processing: documents.filter((d) => isDocumentInProgress(d.status)).length,
+      failed: documents.filter((d) => hasDocumentFailed(d.status)).length,
+    }),
+    [documents],
+  );
 
   return (
     <div className="space-y-7">
       <PageHeader
-        eyebrow="Sources"
         title="Documents"
-        description="Track every source through upload, ingestion, and vector indexing."
+        description="Everything your assistant can draw on, across all knowledge spaces."
         actions={
-          <Button asChild>
-            <Link href="/dashboard/knowledge-bases">
-              <Upload aria-hidden="true" />
-              Upload document
-            </Link>
+          <Button asChild variant="secondary">
+            <Link href="/dashboard/knowledge">Add knowledge</Link>
           </Button>
         }
       />
 
-      {!activeWorkspace ? (
-        <EmptyState
-          icon={Files}
-          title="Select an organization"
-          description="Documents are always scoped to an organization."
-        />
-      ) : documentsQuery.isPending || knowledgeBasesQuery.isPending ? (
-        <LoadingSkeleton rows={5} />
-      ) : documentsQuery.isError || knowledgeBasesQuery.isError ? (
+      {isLoading ? (
+        <LoadingSkeleton rows={4} />
+      ) : isError ? (
         <ErrorState
-          onRetry={() => {
-            void documentsQuery.refetch();
-            void knowledgeBasesQuery.refetch();
-          }}
+          title="We couldn’t load your documents"
+          onRetry={() => void refetch()}
         />
-      ) : documentsQuery.data.length === 0 ? (
+      ) : documents.length === 0 ? (
         <EmptyState
-          icon={Files}
-          title="No documents yet"
-          description="Open a knowledge base and upload a support source to begin."
+          icon={FileText}
+          title="No documents uploaded yet"
+          description="Add PDFs, FAQs, policies, or product docs to prepare your assistant."
           action={
             <Button asChild>
-              <Link href="/dashboard/knowledge-bases">Choose knowledge base</Link>
+              <Link href="/dashboard/knowledge">Upload document</Link>
             </Button>
           }
         />
       ) : (
         <>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-sm text-foreground-muted">
-              Showing {documents.length} of {documentsQuery.data.length} documents
-            </p>
-            <div className="flex items-center gap-2">
-              <label htmlFor="status-filter" className="text-sm text-foreground-muted">
-                Status
-              </label>
-              <select
-                id="status-filter"
-                value={statusFilter}
-                onChange={(event) =>
-                  setStatusFilter(
-                    event.target.value as (typeof statuses)[number],
-                  )
-                }
-                className="h-10 rounded-md border border-border-strong bg-white px-3 text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/10"
-              >
-                {statuses.map((status) => (
-                  <option key={status} value={status}>
-                    {status === "all"
-                      ? "All statuses"
-                      : status.charAt(0).toUpperCase() + status.slice(1)}
-                  </option>
-                ))}
-              </select>
+            <div
+              role="group"
+              aria-label="Filter by status"
+              className="flex flex-wrap gap-1.5"
+            >
+              {FILTERS.map(({ key, label }) => (
+                <button
+                  key={key}
+                  type="button"
+                  aria-pressed={filter === key}
+                  onClick={() => setFilter(key)}
+                  className={cn(
+                    "rounded-full border px-3 py-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                    filter === key
+                      ? "border-primary bg-primary text-primary-foreground"
+                      : "border-border bg-surface text-foreground-muted hover:bg-surface-hover",
+                  )}
+                >
+                  {label}
+                  <span className="ml-1.5 opacity-70">{counts[key]}</span>
+                </button>
+              ))}
+            </div>
+
+            <div className="relative sm:w-64">
+              <Search
+                aria-hidden="true"
+                className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-foreground-subtle"
+              />
+              <Input
+                type="search"
+                aria-label="Search documents"
+                placeholder="Search documents"
+                className="pl-9"
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+              />
             </div>
           </div>
 
-          {documents.length === 0 ? (
+          {visibleDocuments.length === 0 ? (
             <EmptyState
               compact
-              icon={Files}
-              title="No documents match this status"
-              description="Choose another filter to see the rest of your sources."
+              icon={Search}
+              title="No matching documents"
+              description="Try a different search term or filter."
+              action={
+                <Button
+                  variant="secondary"
+                  onClick={() => {
+                    setSearch("");
+                    setFilter("all");
+                  }}
+                >
+                  Clear filters
+                </Button>
+              }
             />
           ) : (
-            <DocumentList
-              documents={documents}
-              onIngest={documentActions.ingest}
-              onIndex={documentActions.index}
-              onView={(document) =>
-                setSelectedDocument(
-                  documentsQuery.data.find((item) => item.id === document.id) ??
-                    null,
-                )
-              }
-              busyDocumentId={documentActions.busyDocumentId}
-              busyAction={documentActions.busyAction}
-            />
+            <>
+              {/* Table on desktop, stacked cards where columns cannot fit. */}
+              <div className="hidden lg:block">
+                <DocumentTable
+                  documents={visibleDocuments}
+                  knowledgeSpaceNames={knowledgeSpaceNames}
+                  onPrepare={prepare}
+                  preparingDocumentId={preparingDocumentId}
+                />
+              </div>
+
+              <ul className="grid gap-3 lg:hidden">
+                {visibleDocuments.map((document) => (
+                  <DocumentMobileCard
+                    key={document.id}
+                    document={document}
+                    knowledgeSpaceName={knowledgeSpaceNames.get(
+                      document.knowledge_base_id,
+                    )}
+                    onPrepare={prepare}
+                    isSubmitting={preparingDocumentId === document.id}
+                  />
+                ))}
+              </ul>
+            </>
           )}
         </>
       )}
-
-      <Dialog
-        open={Boolean(selectedDocument)}
-        onOpenChange={(open) => {
-          if (!open) setSelectedDocument(null);
-        }}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{selectedDocument?.title}</DialogTitle>
-            <DialogDescription>
-              Document metadata from the current organization.
-            </DialogDescription>
-          </DialogHeader>
-          {selectedDocument ? (
-            <dl className="grid gap-4 text-sm sm:grid-cols-2">
-              <div>
-                <dt className="text-foreground-subtle">Status</dt>
-                <dd className="mt-1">
-                  <StatusBadge status={selectedDocument.status} />
-                </dd>
-              </div>
-              <div>
-                <dt className="text-foreground-subtle">Uploaded</dt>
-                <dd className="mt-1 font-medium text-foreground">
-                  {formatDate(selectedDocument.created_at)}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-foreground-subtle">Knowledge base</dt>
-                <dd className="mt-1 font-medium text-foreground">
-                  {knowledgeBaseNames.get(selectedDocument.knowledge_base_id) ??
-                    "Not available"}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-foreground-subtle">Filename</dt>
-                <dd className="mt-1 break-words font-medium text-foreground">
-                  {selectedDocument.file_name ?? "Not available"}
-                </dd>
-              </div>
-              {selectedDocument.error_message ? (
-                <div className="sm:col-span-2">
-                  <dt className="text-red-700">Processing error</dt>
-                  <dd className="mt-1 text-red-700">
-                    {selectedDocument.error_message}
-                  </dd>
-                </div>
-              ) : null}
-            </dl>
-          ) : null}
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

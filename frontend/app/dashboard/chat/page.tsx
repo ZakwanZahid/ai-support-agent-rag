@@ -149,7 +149,7 @@ function ChatWorkspace() {
         description="Chat needs an indexed source collection before it can retrieve grounded context."
         action={
           <Button asChild>
-            <Link href="/dashboard/knowledge-bases">Create knowledge base</Link>
+            <Link href="/dashboard/knowledge">Create knowledge base</Link>
           </Button>
         }
       />

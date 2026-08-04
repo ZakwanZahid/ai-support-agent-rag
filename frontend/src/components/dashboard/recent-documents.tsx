@@ -33,7 +33,7 @@ export function RecentDocuments({ documents }: RecentDocumentsProps) {
               docs to prepare your assistant.
             </p>
             <Button asChild size="sm" className="mt-4">
-              <Link href="/dashboard/knowledge-bases">Upload document</Link>
+              <Link href="/dashboard/knowledge">Upload document</Link>
             </Button>
           </div>
         ) : (

@@ -1,11 +1,12 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 import { ErrorState } from "@/components/common/error-state";
 import { LoadingSkeleton } from "@/components/common/loading-skeleton";
 import { AppShell } from "@/components/layout/app-shell";
+import { CreateWorkspaceDialog } from "@/components/workspace/create-workspace-dialog";
 import { useOnboardingStatus } from "@/hooks/use-onboarding-status";
 import { useWorkspace } from "@/hooks/use-workspace";
 import { useAuth } from "@/lib/auth/auth-context";
@@ -29,6 +30,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
     refetch: refetchWorkspaces,
   } = useWorkspace();
   const onboarding = useOnboardingStatus();
+  const [createWorkspaceOpen, setCreateWorkspaceOpen] = useState(false);
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -81,10 +83,20 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
       workspaces={workspaces}
       activeWorkspace={activeWorkspace}
       onWorkspaceSelect={setActiveWorkspace}
+      onCreateWorkspace={() => setCreateWorkspaceOpen(true)}
       user={user}
       onSignOut={signOut}
     >
       {children}
+
+      <CreateWorkspaceDialog
+        open={createWorkspaceOpen}
+        onOpenChange={setCreateWorkspaceOpen}
+        onCreated={async (workspaceId) => {
+          await refetchWorkspaces();
+          setActiveWorkspace(workspaceId);
+        }}
+      />
     </AppShell>
   );
 }

@@ -14,7 +14,7 @@ export function QuickActions({ canAsk }: QuickActionsProps) {
     {
       label: "Add document",
       description: "Upload a policy, FAQ, or guide",
-      href: "/dashboard/knowledge-bases",
+      href: "/dashboard/knowledge",
       icon: Upload,
       disabled: false,
     },
@@ -30,7 +30,7 @@ export function QuickActions({ canAsk }: QuickActionsProps) {
     {
       label: "Create knowledge space",
       description: "Group related documents",
-      href: "/dashboard/knowledge-bases",
+      href: "/dashboard/knowledge",
       icon: BookOpen,
       disabled: false,
     },
