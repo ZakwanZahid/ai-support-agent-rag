@@ -7,10 +7,14 @@ from sqlalchemy.orm import Session
 from app.models.organization import Organization
 from app.models.user import User
 from app.repositories.organization_repository import OrganizationRepository
-from app.schemas.organization import OrganizationCreate
+from app.schemas.organization import OrganizationCreate, OrganizationUpdate
 
 
 class OrganizationSlugAlreadyExistsError(Exception):
+    pass
+
+
+class OrganizationNotFoundError(Exception):
     pass
 
 
@@ -40,6 +44,21 @@ class OrganizationService:
 
     def list_for_user(self, user: User) -> list[Organization]:
         return self.organizations.list_for_user(user.id)
+
+    def update(
+        self,
+        *,
+        organization_id: uuid.UUID,
+        data: OrganizationUpdate,
+    ) -> Organization:
+        organization = self.organizations.get_by_id(organization_id)
+        if organization is None:
+            raise OrganizationNotFoundError
+
+        organization.name = data.name
+        self.db.commit()
+        self.db.refresh(organization)
+        return organization
 
     @staticmethod
     def _generate_slug(name: str) -> str:

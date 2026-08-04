@@ -28,6 +28,24 @@ class OrganizationCreate(BaseModel):
         return value
 
 
+class OrganizationUpdate(BaseModel):
+    """Rename only.
+
+    The slug is deliberately not editable: it is a stable identifier, and
+    changing it would silently invalidate anything that referenced the old one.
+    """
+
+    name: str = Field(min_length=1, max_length=255)
+
+    @field_validator("name")
+    @classmethod
+    def normalize_name(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("Organization name cannot be blank")
+        return value
+
+
 class OrganizationResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
