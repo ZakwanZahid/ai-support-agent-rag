@@ -50,7 +50,6 @@ export const navItems: NavItem[] = [
     label: "Chat threads",
     href: "/dashboard/conversations",
     icon: MessagesSquare,
-    comingSoon: true,
   },
   {
     label: "Settings",

@@ -1,7 +1,7 @@
 "use client";
 
-import * as React from "react";
-import { Loader2, Send } from "lucide-react";
+import { LoaderCircle, Send } from "lucide-react";
+import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -9,50 +9,39 @@ import { cn } from "@/lib/utils";
 
 interface ChatInputProps {
   onSubmit: (question: string) => void | Promise<void>;
-  value?: string;
-  onValueChange?: (value: string) => void;
   disabled?: boolean;
-  loading?: boolean;
+  isSending?: boolean;
   placeholder?: string;
   className?: string;
 }
 
 export function ChatInput({
   onSubmit,
-  value,
-  onValueChange,
   disabled = false,
-  loading = false,
-  placeholder = "Ask a question about your support knowledge…",
+  isSending = false,
+  placeholder = "Ask a question about your documents…",
   className,
 }: ChatInputProps) {
-  const [internalValue, setInternalValue] = React.useState("");
-  const isControlled = value !== undefined;
-  const currentValue = isControlled ? value : internalValue;
-
-  function updateValue(nextValue: string) {
-    if (!isControlled) setInternalValue(nextValue);
-    onValueChange?.(nextValue);
-  }
+  const [value, setValue] = useState("");
 
   async function submit() {
-    const question = currentValue.trim();
-    if (!question || disabled || loading) return;
+    const question = value.trim();
+    if (!question || disabled || isSending) return;
 
-    updateValue("");
+    setValue("");
     try {
       await onSubmit(question);
     } catch {
-      // The calling mutation owns the user-facing error state. Keeping the
-      // question here lets the user retry without retyping it.
-      updateValue(question);
+      // The caller surfaces the error. Restoring the text means a failed send
+      // does not cost the user their question.
+      setValue(question);
     }
   }
 
   return (
     <form
       className={cn(
-        "rounded-lg border border-border bg-white p-2 focus-within:border-border-strong focus-within:ring-2 focus-within:ring-ring/5",
+        "rounded-xl border border-border bg-surface p-2 focus-within:border-border-strong",
         className,
       )}
       onSubmit={(event) => {
@@ -65,35 +54,38 @@ export function ChatInput({
       </label>
       <Textarea
         id="chat-question"
-        value={currentValue}
-        onChange={(event) => updateValue(event.target.value)}
+        value={value}
+        onChange={(event) => setValue(event.target.value)}
         onKeyDown={(event) => {
+          // Enter sends; Shift+Enter is a newline. Standard for chat, and the
+          // hint below says so for anyone who expects otherwise.
           if (event.key === "Enter" && !event.shiftKey) {
             event.preventDefault();
             void submit();
           }
         }}
-        disabled={disabled || loading}
+        disabled={disabled}
         placeholder={placeholder}
-        rows={2}
-        className="min-h-20 resize-none border-0 px-2 py-2 shadow-none focus-visible:ring-0"
+        rows={1}
+        className="max-h-40 min-h-11 resize-none border-0 bg-transparent px-2 py-2.5 shadow-none focus-visible:ring-0"
       />
-      <div className="flex items-center justify-between gap-3 px-1 pb-1">
+
+      <div className="flex items-center justify-between gap-3 px-1 pb-0.5">
         <p className="hidden text-xs text-foreground-subtle sm:block">
           Enter to send · Shift + Enter for a new line
         </p>
         <Button
           type="submit"
           size="sm"
-          disabled={!currentValue.trim() || disabled || loading}
           className="ml-auto"
+          disabled={!value.trim() || disabled || isSending}
         >
-          {loading ? (
-            <Loader2 aria-hidden="true" className="animate-spin" />
+          {isSending ? (
+            <LoaderCircle aria-hidden="true" className="animate-spin" />
           ) : (
             <Send aria-hidden="true" />
           )}
-          {loading ? "Generating" : "Send"}
+          {isSending ? "Answering" : "Send"}
         </Button>
       </div>
     </form>

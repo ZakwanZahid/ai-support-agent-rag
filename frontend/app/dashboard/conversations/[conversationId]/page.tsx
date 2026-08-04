@@ -1,143 +1,113 @@
 "use client";
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, MessagesSquare } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { ArrowLeft, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useState } from "react";
-import { toast } from "sonner";
 
-import { ConversationThread } from "@/components/chat/conversation-thread";
-import { EmptyState } from "@/components/common/empty-state";
+import { ChatMessage } from "@/components/chat/chat-message";
 import { ErrorState } from "@/components/common/error-state";
 import { LoadingSkeleton } from "@/components/common/loading-skeleton";
-import { PageHeader } from "@/components/common/page-header";
 import { Button } from "@/components/ui/button";
-import { getAPIErrorMessage } from "@/lib/api/client";
-import {
-  getConversation,
-  sendChatMessage,
-} from "@/lib/api/conversations";
+import { useWorkspace } from "@/hooks/use-workspace";
+import { getConversation } from "@/lib/api/conversations";
 import { listKnowledgeBases } from "@/lib/api/knowledge-bases";
 import { queryKeys } from "@/lib/query-keys";
 import { formatDate } from "@/lib/utils";
-import { useWorkspace } from "@/hooks/use-workspace";
 
-export default function ConversationDetailPage() {
+export default function ChatThreadDetailPage() {
   const params = useParams<{ conversationId: string }>();
-  const conversationId = params.conversationId;
+  const threadId = params.conversationId;
   const { activeWorkspace } = useWorkspace();
-  const organizationId = activeWorkspace?.id;
-  const queryClient = useQueryClient();
-  const [pendingQuestion, setPendingQuestion] = useState<string | null>(null);
+  const workspaceId = activeWorkspace?.id ?? null;
 
-  const conversationQuery = useQuery({
-    queryKey: queryKeys.conversation(organizationId, conversationId),
-    queryFn: () => getConversation(organizationId!, conversationId),
-    enabled: Boolean(organizationId),
-  });
-  const knowledgeBasesQuery = useQuery({
-    queryKey: queryKeys.knowledgeBases(organizationId),
-    queryFn: () => listKnowledgeBases(organizationId!),
-    enabled: Boolean(organizationId),
+  const threadQuery = useQuery({
+    queryKey: queryKeys.conversation(workspaceId, threadId),
+    queryFn: () => getConversation(workspaceId!, threadId),
+    enabled: Boolean(workspaceId && threadId),
   });
 
-  const knowledgeBaseId = conversationQuery.data?.knowledge_base_id;
-  const sendMutation = useMutation({
-    mutationFn: (question: string) =>
-      sendChatMessage(organizationId!, conversationId, {
-        question,
-        knowledge_base_id: knowledgeBaseId!,
-      }),
-    onMutate: (question) => setPendingQuestion(question),
-    onSuccess: async () => {
-      await Promise.all([
-        queryClient.invalidateQueries({
-          queryKey: queryKeys.conversation(organizationId, conversationId),
-        }),
-        queryClient.invalidateQueries({
-          queryKey: queryKeys.conversations(organizationId),
-        }),
-      ]);
-    },
-    onError: (error) => toast.error(getAPIErrorMessage(error)),
-    onSettled: () => setPendingQuestion(null),
+  const knowledgeSpacesQuery = useQuery({
+    queryKey: queryKeys.knowledgeBases(workspaceId),
+    queryFn: () => listKnowledgeBases(workspaceId!),
+    enabled: Boolean(workspaceId),
   });
 
-  if (!activeWorkspace) {
-    return (
-      <EmptyState
-        icon={MessagesSquare}
-        title="Select an organization"
-        description="The conversation must be opened inside its organization."
-      />
-    );
-  }
-
-  if (conversationQuery.isPending || knowledgeBasesQuery.isPending) {
-    return <LoadingSkeleton variant="detail" rows={4} />;
-  }
-
-  if (conversationQuery.isError || knowledgeBasesQuery.isError) {
-    return (
-      <ErrorState
-        title="Conversation could not be loaded"
-        message={getAPIErrorMessage(
-          conversationQuery.error ?? knowledgeBasesQuery.error,
-        )}
-        onRetry={() => {
-          void conversationQuery.refetch();
-          void knowledgeBasesQuery.refetch();
-        }}
-      />
-    );
-  }
-
-  const knowledgeBase = knowledgeBasesQuery.data.find(
-    (item) => item.id === conversationQuery.data.knowledge_base_id,
+  const thread = threadQuery.data;
+  const knowledgeSpace = (knowledgeSpacesQuery.data ?? []).find(
+    (space) => space.id === thread?.knowledge_base_id,
   );
 
+  const backLink = (
+    <Button asChild size="sm" variant="ghost" className="-ml-2">
+      <Link href="/dashboard/conversations">
+        <ArrowLeft aria-hidden="true" />
+        Chat threads
+      </Link>
+    </Button>
+  );
+
+  if (threadQuery.isPending) {
+    return (
+      <div className="space-y-6">
+        {backLink}
+        <LoadingSkeleton variant="detail" rows={3} />
+      </div>
+    );
+  }
+
+  if (threadQuery.isError || !thread) {
+    return (
+      <div className="space-y-6">
+        {backLink}
+        <ErrorState
+          title="We couldn’t load this chat"
+          message="It may have been removed, or the API may be unavailable."
+          onRetry={() => void threadQuery.refetch()}
+        />
+      </div>
+    );
+  }
+
   return (
-    <div className="space-y-7">
-      <PageHeader
-        eyebrow={knowledgeBase?.name ?? "Saved conversation"}
-        title={conversationQuery.data.title || "Untitled conversation"}
-        description={`Started ${formatDate(conversationQuery.data.created_at)}. Continue asking questions against the same tenant-scoped knowledge base.`}
-        actions={
-          <Button asChild variant="outline">
+    <div className="space-y-6">
+      {backLink}
+
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground">
+            {thread.title?.trim() || "Untitled chat"}
+          </h1>
+          <p className="mt-1.5 text-sm text-foreground-subtle">
+            {knowledgeSpace ? `${knowledgeSpace.name} · ` : ""}
+            Started {formatDate(thread.created_at)}
+          </p>
+        </div>
+
+        {knowledgeSpace ? (
+          <Button asChild className="shrink-0">
             <Link
-              href={
-                knowledgeBaseId
-                  ? `/dashboard/chat?knowledgeBaseId=${encodeURIComponent(knowledgeBaseId)}`
-                  : "/dashboard/chat"
-              }
+              href={`/dashboard/chat?knowledgeSpace=${encodeURIComponent(
+                knowledgeSpace.id,
+              )}`}
             >
-              <ArrowLeft aria-hidden="true" />
-              Back to chat
+              <Sparkles aria-hidden="true" />
+              Continue in chat
             </Link>
           </Button>
-        }
-      />
+        ) : null}
+      </div>
 
-      {!knowledgeBaseId ? (
-        <ErrorState
-          title="This conversation has no knowledge base"
-          message="Start a new conversation with a selected knowledge base to continue chatting."
-          action={
-            <Button asChild>
-              <Link href="/dashboard/chat">Start new conversation</Link>
-            </Button>
-          }
-        />
+      {thread.messages.length === 0 ? (
+        <p className="rounded-lg border border-dashed border-border-strong bg-surface px-5 py-10 text-center text-sm text-foreground-muted">
+          This chat has no messages yet.
+        </p>
       ) : (
-        <ConversationThread
-          messages={conversationQuery.data.messages}
-          onSend={async (question) => {
-            await sendMutation.mutateAsync(question);
-          }}
-          sending={sendMutation.isPending}
-          pendingQuestion={pendingQuestion}
-        />
+        <div className="space-y-6 rounded-lg border border-border bg-surface p-4 sm:p-6">
+          {thread.messages.map((message) => (
+            <ChatMessage key={message.id} message={message} />
+          ))}
+        </div>
       )}
     </div>
   );

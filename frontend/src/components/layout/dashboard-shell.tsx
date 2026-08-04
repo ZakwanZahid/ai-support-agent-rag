@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { ErrorState } from "@/components/common/error-state";
@@ -21,6 +21,10 @@ import { useAuth } from "@/lib/auth/auth-context";
  */
 export function DashboardShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
+  const pathname = usePathname();
+  // Chat manages its own scrolling and fills the viewport; every other page
+  // reads better in a centred column.
+  const fullBleed = pathname === "/dashboard/chat";
   const { user, status, signOut } = useAuth();
   const {
     workspaces,
@@ -86,6 +90,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
       onCreateWorkspace={() => setCreateWorkspaceOpen(true)}
       user={user}
       onSignOut={signOut}
+      fullBleed={fullBleed}
     >
       {children}
 
