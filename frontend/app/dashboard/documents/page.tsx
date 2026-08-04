@@ -190,8 +190,12 @@ export default function DocumentsPage() {
             />
           ) : (
             <>
-              {/* Table on desktop, stacked cards where columns cannot fit. */}
-              <div className="hidden lg:block">
+              {/*
+                Table only from xl. The fixed sidebar takes 240px, so at
+                1024 the content column is ~736px and the five columns would
+                have to scroll sideways. Cards read better than that.
+              */}
+              <div className="hidden xl:block">
                 <DocumentTable
                   documents={visibleDocuments}
                   knowledgeSpaceNames={knowledgeSpaceNames}
@@ -200,7 +204,7 @@ export default function DocumentsPage() {
                 />
               </div>
 
-              <ul className="grid gap-3 lg:hidden">
+              <ul className="grid gap-3 xl:hidden">
                 {visibleDocuments.map((document) => (
                   <DocumentMobileCard
                     key={document.id}
