@@ -46,7 +46,8 @@ Redis, durable workers, and LangGraph orchestration are future milestones rather
 - [Document Ingestion](docs/07-document-ingestion.md)
 - [Embedding Indexing and Search](docs/08-embedding-indexing.md)
 - [RAG Chat with Citations](docs/09-rag-chat.md)
-- [Frontend v1](docs/10-frontend-v1.md)
+- [Frontend v1](docs/10-frontend-v1.md) (superseded)
+- [Frontend Redesign](docs/10-frontend-redesign.md)
 - [API Design](docs/api-design.md)
 - [System Design Decisions](docs/06-decisions.md)
 
@@ -89,12 +90,23 @@ The current local product flow includes:
 - Tenant-scoped pgvector semantic search
 - Grounded RAG chat with persisted conversations, messages, and citations
 - OpenAI chat-model adapter behind a provider abstraction
-- Next.js authentication, dashboard, knowledge-base, document, chat, and saved-conversation pages
+- Single-call document preparation that chains extraction and indexing
+- Marketing landing page, guided onboarding, dashboard, knowledge, documents, chat, chat threads, and settings pages
 - Responsive desktop and mobile application navigation
 - Typed API modules with bearer authentication and consistent error handling
 - Loading, empty, disabled, success, and error states backed by real API data
 
-Streaming, LangGraph orchestration, escalation, billing, analytics, team invitations, and durable workers are not part of Frontend v1.
+Streaming, LangGraph orchestration, escalation, billing, analytics, team invitations, and durable workers are not implemented.
+
+## Frontend Redesign
+
+The interface was rebuilt as **SupportMind**, a product surface rather than a CRUD wrapper over the API. The full write-up is in [Frontend Redesign](docs/10-frontend-redesign.md); the short version:
+
+- **Backend vocabulary stays in the backend.** The UI says workspace, knowledge space, sources, and chat thread. One module owns the translation, so the mapping is enforced by construction rather than by convention.
+- **One action instead of two.** "Prepare for chat" calls a single endpoint that runs extraction and indexing server-side, with a visible four-step progress timeline instead of a spinner.
+- **New accounts are guided.** Users without a workspace or knowledge space go through a four-step setup that ends with a real answer from a real document, rather than landing on an empty dashboard.
+- **The root route explains the product.** `/` is a landing page instead of a redirect to login.
+- **Verified responsive.** Every page is measured at 360, 768, 1024, and 1440 rather than checked by eye.
 
 ## Database Schema
 
@@ -401,17 +413,19 @@ If browser API requests are blocked, verify that the frontend base URL matches t
 
 ## Manual Product Demo
 
-1. Register through the frontend and log in.
-2. Create or select an organization.
-3. Create a knowledge base for a small set of support policies.
-4. Upload a text document through the knowledge-base detail page.
-5. Ingest the document, then index it.
-6. Open Chat and select that knowledge base.
-7. Start a conversation and ask a question answered by the document.
-8. Confirm the assistant answer is grounded and its citation shows the source title and supporting quote.
-9. Open the saved conversation and confirm the messages and citations reload.
-10. Ask an unrelated question and confirm the app shows the safe no-context answer without invented sources.
-11. Log out and confirm the protected dashboard is no longer available.
+1. Open `/` and confirm the landing page explains the product before asking for an account.
+2. Register through the frontend. A new account is routed into onboarding, not the dashboard.
+3. Create a workspace, then choose what the assistant will help with to create a knowledge space.
+4. Upload a small policy document. Preparation starts automatically; watch the timeline move Uploaded → Processing → Extracted → Ready.
+5. Ask the suggested question and confirm the answer is grounded and lists the passage it came from under "Sources".
+6. Finish onboarding and confirm the dashboard shows "Your assistant is ready" with the real counts.
+7. Open Documents and confirm the document reads "Ready" and offers "Ask about this".
+8. Open Ask AI, ask an unrelated question, and confirm the safe no-context answer appears without invented sources.
+9. Open Chat threads and confirm the saved thread reloads with its messages and sources.
+10. Open Settings and rename the workspace; confirm the workspace switcher updates.
+11. Log out and confirm the dashboard redirects to login.
+
+Nothing in this flow requires knowing what ingestion, indexing, or embeddings are, which is the point of the redesign.
 
 The backend-only Swagger and pgAdmin verification flow remains documented in [RAG Chat with Citations](docs/09-rag-chat.md).
 
@@ -421,11 +435,13 @@ Screenshot slots are intentionally left explicit until final demo data and deplo
 
 | View | Placeholder |
 | --- | --- |
-| Authentication | `docs/screenshots/frontend-auth.png` |
-| Dashboard overview | `docs/screenshots/frontend-dashboard.png` |
-| Knowledge-base documents | `docs/screenshots/frontend-knowledge-base.png` |
-| Grounded chat with citations | `docs/screenshots/frontend-chat-citations.png` |
-| Mobile chat | `docs/screenshots/frontend-mobile-chat.png` |
+| Landing page | `docs/screenshots/landing.png` |
+| Onboarding | `docs/screenshots/onboarding.png` |
+| Dashboard | `docs/screenshots/dashboard.png` |
+| Knowledge space with documents | `docs/screenshots/knowledge-space.png` |
+| Preparing a document | `docs/screenshots/prepare-timeline.png` |
+| Grounded answer with sources | `docs/screenshots/chat-sources.png` |
+| Mobile chat | `docs/screenshots/mobile-chat.png` |
 
 These paths are placeholders, not claims that screenshots or a public deployment are already available.
 
@@ -433,7 +449,7 @@ These paths are placeholders, not claims that screenshots or a public deployment
 
 - [Backend setup](backend/README.md)
 - [Frontend setup](frontend/README.md)
-- [Frontend v1 architecture and manual testing](docs/10-frontend-v1.md)
+- [Frontend redesign architecture and decisions](docs/10-frontend-redesign.md)
 
 ## Future Improvements
 

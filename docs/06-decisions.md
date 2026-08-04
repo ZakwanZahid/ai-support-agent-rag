@@ -145,3 +145,63 @@ Frontend v1 stores the API access token in browser `localStorage` and attaches i
 Status: Accepted
 
 The product UI is added after authentication, organization isolation, document ingestion and indexing, semantic search, and RAG chat with citations are working through the API. As a result, Frontend v1 can exercise the real upload-to-answer lifecycle rather than designing against guessed contracts or placeholder messages. The backend remains the authorization and tenant-isolation boundary.
+
+## ADR-023: Product Language in the UI, Backend Language in the API
+
+Status: Accepted
+
+The API keeps its domain vocabulary (organizations, knowledge bases, ingestion, indexing, citations) while the interface speaks only in product terms. A single module, `frontend/src/lib/terminology.ts`, owns the translation: status labels, tones, timeline position, and the decision about whether to keep polling all derive from one table. Components ask that module rather than mapping strings themselves, so the rule is enforced by construction instead of by reviewer memory, and a future rename is one edit. Raw identifiers never reach the interface; where a name is needed, the client resolves it from a list it already holds.
+
+## ADR-024: Workspace and Knowledge Space as Product Terms
+
+Status: Accepted
+
+"Organization" is accurate but reads as billing and administration, and "knowledge base" describes the retrieval mechanism rather than the user's goal. The UI says workspace and knowledge space. The API is unchanged, so this is a presentation decision with no migration cost, and the mapping lives in the terminology module rather than being spelled out per component.
+
+## ADR-025: One Prepare for Chat Action Instead of Ingest and Index
+
+Status: Accepted
+
+Extraction and indexing are two API operations with independent failure modes, which is right for the backend and wrong for the interface: it made the user sequence two calls and guess when the first had finished. `POST /documents/{id}/prepare` runs both server-side in one background task and stops if extraction produces nothing, so clients call one endpoint and poll one status. Ingest and index remain available for operating on a single phase. Doing this server-side rather than orchestrating in the browser keeps the sequencing correct when a client disconnects mid-flow.
+
+## ADR-026: Guided Onboarding Before the Dashboard
+
+Status: Accepted
+
+A new account has no workspace, no knowledge space, and no documents, so the dashboard would open on four empty panels and no clear first move. Users without a workspace or knowledge space are routed to a four-step flow that creates each in turn and finishes with a real question against a real document. The gate is evaluated on entry only: completing a step mid-flow satisfies the condition that sent the user there, and re-checking would eject them before the end.
+
+## ADR-027: Marketing Landing Page at the Root Route
+
+Status: Accepted
+
+The root route previously redirected straight to the dashboard, so an unauthenticated visitor met a login form with no explanation of the product. `/` is now a landing page covering the problem, the three-step flow, features, and use cases. For a portfolio project this is also the page a reviewer sees first, and it carries the positioning that the dashboard cannot.
+
+## ADR-028: Responsive Dashboard with a Drawer Sidebar
+
+Status: Accepted
+
+The application shell uses a fixed sidebar that becomes a dialog-based drawer below the `lg` breakpoint, with a top bar carrying the workspace switcher and account menu. Data-dense views change shape rather than scroll: the documents table becomes stacked cards below `xl`, because the fixed sidebar leaves roughly 736px of content column at 1024px and five columns would have to scroll sideways. Layout is verified by measuring every element against the viewport at 360, 768, 1024, and 1440 rather than by inspection.
+
+## ADR-029: Stock Next.js Instead of the vinext Adapter
+
+Status: Accepted
+
+Frontend v1 built through `vinext` with a Cloudflare Workers adapter. The redesign moved to the standard Next.js CLI. The application already used App Router conventions, so no application code changed; only the toolchain and its dependencies were removed. The reasons are that a pre-1.0 build adapter is a fair thing for a reviewer to question, and the planned deployment target expects standard Next.js output.
+
+## ADR-030: Role-Named Design Tokens
+
+Status: Accepted
+
+Colour is defined once as CSS custom properties named for their role (`surface`, `foreground-muted`, `border-strong`, `success-surface`) and exposed to Tailwind through `@theme`. Components reference roles rather than palette positions, which is what makes a theme change a single file. The primary is a near-black neutral rather than a saturated accent, so colour is reserved for status and a green or amber badge carries meaning instead of competing with decoration.
+
+## ADR-031: Aggregate Counts in List Responses
+
+Status: Accepted
+
+Knowledge bases return `document_count` and `ready_document_count`; conversations return `message_count` and `last_message_preview`. Without these a client renders a list by fetching every child record just to count it. Both use a single grouped or correlated query, so a list costs one round trip regardless of length, and the preview is truncated server-side so the response does not carry whole message bodies.
+
+## ADR-032: Upload No Longer Starts Ingestion Automatically
+
+Status: Accepted
+
+`AUTO_INGEST_ON_UPLOAD` now defaults to false. With it enabled, upload left the document mid-flight in `processing`, so a `prepare` call moments later conflicted with work already running, and the document stalled after extraction with nothing to index it. Preparation is an explicit action that owns the whole lifecycle, which removes the race and matches the single user-facing action described in ADR-025.

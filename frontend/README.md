@@ -1,8 +1,8 @@
-# AI Support Agent RAG Frontend
+# SupportMind Frontend
 
-Responsive Frontend v1 for the multi-tenant AI Support Agent RAG API. The application covers authentication, organization workspaces, knowledge bases, document ingestion and indexing, conversations, grounded chat answers, and source citations.
+The web interface for the multi-tenant AI support API: landing page, guided onboarding, dashboard, knowledge spaces, documents, grounded chat with sources, chat threads, and workspace settings.
 
-The UI uses the Next.js App Router and TypeScript. This repository's frontend commands run through the vinext build adapter, while pages and layouts use Next.js-compatible App Router conventions.
+Built with the Next.js App Router and TypeScript, using the standard Next.js CLI. The interface deliberately does not expose the API's vocabulary; see [Frontend Redesign](../docs/10-frontend-redesign.md) for the terminology mapping and the reasoning behind it.
 
 ## Requirements
 
@@ -76,35 +76,43 @@ npm run start
 
 ```text
 frontend/
-|-- app/                    # App Router layouts and routes
-|   |-- (auth)/             # Login and register routes
+|-- app/                       # App Router layouts and routes
+|   |-- page.tsx               # Marketing landing page
+|   |-- (auth)/                # Login and register
+|   |-- onboarding/            # Four-step guided setup
 |   `-- dashboard/
-|       |-- knowledge-bases/
-|       |-- documents/
-|       |-- chat/
-|       `-- conversations/
+|       |-- knowledge/         # Knowledge spaces list and detail
+|       |-- documents/         # All documents, table and cards
+|       |-- chat/              # Ask AI
+|       |-- conversations/     # Chat threads list and detail
+|       `-- settings/
 |-- src/
 |   |-- components/
-|   |   |-- providers.tsx  # TanStack Query and toast providers
-|   |   |-- ui/            # Reusable shadcn/ui-style primitives
-|   |   |-- layout/        # Dashboard shell and navigation
-|   |   |-- common/        # Shared states, headings, and status UI
-|   |   |-- chat/          # Messages, citations, and composer
-|   |   |-- documents/     # Document views, upload, and actions
-|   |   |-- kb/            # Knowledge-base cards and forms
-|   |   `-- organizations/ # Organization creation
-|   |-- hooks/              # Protected workspace and document actions
+|   |   |-- providers.tsx      # TanStack Query, auth, and toast providers
+|   |   |-- ui/                # shadcn/ui-style primitives
+|   |   |-- layout/            # App shell, sidebar, top bar, workspace switcher
+|   |   |-- marketing/         # Landing page sections
+|   |   |-- onboarding/        # Flow, stepper, and step components
+|   |   |-- dashboard/         # Checklist, stats, recent items, quick actions
+|   |   |-- knowledge/         # Knowledge space cards and dialog
+|   |   |-- documents/         # Dropzone, status timeline, table, cards, actions
+|   |   |-- chat/              # Messages, sources, composer, thread list
+|   |   |-- settings/          # Workspace settings and placeholders
+|   |   `-- common/            # Page header, empty, error, loading, status badge
+|   |-- hooks/                 # Workspace, documents, chat, dashboard, preparation
 |   |-- lib/
-|   |   |-- api/           # Typed Axios API modules
-|   |   |-- auth-token.ts  # MVP browser token storage
-|   |   |-- query-keys.ts  # Tenant-aware query keys
+|   |   |-- api/               # Typed Axios API modules
+|   |   |-- auth/              # Token storage, auth context, post-auth routing
+|   |   |-- terminology.ts     # Backend-to-product vocabulary, single source
+|   |   |-- query-keys.ts      # Tenant-aware query keys
 |   |   `-- utils.ts
+|   `-- types/                 # Domain types named for product concepts
 |-- .env.example
 |-- package.json
 `-- README.md
 ```
 
-The exact route tree is described in [`../docs/10-frontend-v1.md`](../docs/10-frontend-v1.md).
+`lib/terminology.ts` is worth reading first: it defines every user-facing status label, its badge tone, its position in the preparation timeline, and whether the UI should keep polling. Components derive those from it rather than mapping status strings themselves.
 
 ## API Integration
 
@@ -112,16 +120,16 @@ The frontend calls the existing API through modules under `src/lib/api/`:
 
 - `client.ts`: Axios instance, API origin, bearer token, common errors, and `401` handling
 - `auth.ts`: register, login, and current user
-- `organizations.ts`: list and create organizations
+- `organizations.ts`: list, create, and rename organizations
 - `knowledge-bases.ts`: organization-scoped knowledge-base operations
-- `documents.ts`: upload, list/detail, ingest, and index operations
+- `documents.ts`: upload, list/detail, and `prepare` (extraction plus indexing in one call); `ingest` and `index` remain for single-phase use
 - `conversations.ts`: create/list conversations, load messages, and send RAG questions
 
 The selected organization ID is included in all tenant-owned request paths. The UI helps users stay in one workspace, but FastAPI remains responsible for membership authorization and tenant isolation.
 
 ## Authentication
 
-Frontend v1 stores the backend access token in browser `localStorage`. The shared API client attaches it as a bearer token, clears it after an unauthorized response, and routes the browser back to login when practical.
+The frontend stores the backend access token in browser `localStorage`. The shared API client attaches it as a bearer token, clears it after an unauthorized response, and routes the browser back to login when practical.
 
 This is an explicit MVP compromise. A production version should move authentication to `Secure`, `HttpOnly` cookies with appropriate same-site and CSRF protection.
 
@@ -138,27 +146,29 @@ This is an explicit MVP compromise. A production version should move authenticat
 
 The token may be missing or expired. Log out, log in again, and confirm the browser has not blocked `localStorage`. The client intentionally clears a rejected token.
 
-### No organization data appears
+### No workspace data appears
 
-Create an organization from the application first, then select it in the top bar. Knowledge bases, documents, and conversations are scoped to the active organization.
+A new account is routed into onboarding, which creates a workspace and a knowledge space. If you skipped it, create a workspace from the switcher in the top bar. Knowledge spaces, documents, and chat threads are all scoped to the active workspace.
 
-### A document cannot be indexed
+### A document never becomes Ready
 
-The normal lifecycle is:
+The lifecycle shown in the UI is:
 
 ```text
-pending -> processing -> processed -> indexed
+Uploaded -> Processing -> Extracted -> Ready
 ```
 
-Ingest before indexing. If status becomes `failed`, inspect the readable UI error and backend logs. Indexing requires a valid backend OpenAI key; the key does not belong in the frontend environment.
+which maps to `pending -> processing -> processed -> indexed` in the API. "Prepare for chat" runs the whole sequence server-side, so there is nothing to trigger manually. If it stops at Failed, the UI shows the backend's reason and offers a retry. Reaching Ready requires a valid backend `OPENAI_API_KEY`; that key does not belong in the frontend environment.
 
-### Chat returns no citations
+Note that `AUTO_INGEST_ON_UPLOAD` should stay `false`. With it enabled, upload starts extraction on its own and the subsequent prepare call conflicts with work already running, leaving the document stalled after extraction.
 
-Confirm the selected knowledge base contains an indexed document and that the question is answerable from its text. The safe insufficient-context answer correctly returns no citations.
+### Chat returns no sources
+
+Confirm the selected knowledge space contains a Ready document and that the question is answerable from its text. Only knowledge spaces with at least one Ready document are selectable. The safe insufficient-context answer correctly returns no sources.
 
 ### Port 3000 is already in use
 
-Stop the process using the port or start the frontend on an available port supported by the local adapter. If the origin changes, also update the backend's development CORS allowlist.
+Stop the process using the port, or run `npm run dev -- -p 3001`. If the origin changes, update `FRONTEND_ORIGIN` in the backend environment so its development CORS allowlist matches.
 
 ### Install or build fails unexpectedly
 
@@ -169,7 +179,7 @@ Stop the process using the port or start the frontend on an available port suppo
 
 ## More Documentation
 
-- [Frontend v1 design and manual test flow](../docs/10-frontend-v1.md)
+- [Frontend redesign, terminology, and known limitations](../docs/10-frontend-redesign.md)
 - [RAG chat and citations](../docs/09-rag-chat.md)
 - [Architecture decisions](../docs/06-decisions.md)
 - [Repository setup](../README.md)
