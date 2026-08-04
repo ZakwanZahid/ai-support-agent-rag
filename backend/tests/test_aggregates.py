@@ -132,6 +132,59 @@ def test_conversation_list_reports_message_count_and_preview(
     assert listed[0]["last_message_preview"] == detail["messages"][-1]["content"]
 
 
+def test_messages_keep_question_before_answer(client: TestClient) -> None:
+    """Ordering must not depend on clock resolution.
+
+    A question and its answer are written close enough together to land on the
+    same timestamp, and the primary key tiebreak is a random UUID, so without
+    explicit sequencing the answer can sort above the question.
+    """
+    token = create_user_and_token(client, "ordering@example.com")
+    organization = client.post(
+        "/api/v1/organizations",
+        json={"name": "Ordering Org", "slug": f"org-{uuid.uuid4().hex[:8]}"},
+        headers=auth_headers(token),
+    ).json()
+    knowledge_base = client.post(
+        f"/api/v1/organizations/{organization['id']}/knowledge-bases",
+        json={"name": "Policies"},
+        headers=auth_headers(token),
+    ).json()
+    conversation = client.post(
+        f"/api/v1/organizations/{organization['id']}/conversations",
+        json={"knowledge_base_id": knowledge_base["id"]},
+        headers=auth_headers(token),
+    ).json()
+
+    for question in ("First question?", "Second question?"):
+        client.post(
+            f"/api/v1/organizations/{organization['id']}/conversations/{conversation['id']}/messages",
+            json={
+                "question": question,
+                "knowledge_base_id": knowledge_base["id"],
+            },
+            headers=auth_headers(token),
+        )
+
+    messages = client.get(
+        f"/api/v1/organizations/{organization['id']}/conversations/{conversation['id']}",
+        headers=auth_headers(token),
+    ).json()["messages"]
+
+    assert [message["role"] for message in messages] == [
+        "user",
+        "assistant",
+        "user",
+        "assistant",
+    ]
+    assert messages[0]["content"] == "First question?"
+    assert messages[2]["content"] == "Second question?"
+
+    timestamps = [message["created_at"] for message in messages]
+    assert timestamps == sorted(timestamps)
+    assert len(set(timestamps)) == len(timestamps)
+
+
 def test_long_message_preview_is_truncated(client: TestClient) -> None:
     from app.schemas.conversation import MESSAGE_PREVIEW_MAX_CHARS
     from app.services.conversation_service import _preview

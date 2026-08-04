@@ -45,7 +45,7 @@ def extract_text_from_file(file_path: str, mime_type: str) -> ExtractedDocument:
     except TextExtractionError:
         raise
     except Exception as exc:
-        raise TextExtractionError(f"Could not extract text from {path.name}: {exc}") from exc
+        raise TextExtractionError(f"Could not read this file: {exc}") from exc
 
     raise TextExtractionError(f"Unsupported document MIME type: {mime_type}")
 
@@ -55,10 +55,10 @@ def _extract_text_file(path: Path) -> ExtractedDocument:
         text = path.read_text(encoding="utf-8")
     except UnicodeDecodeError as exc:
         raise TextExtractionError(
-            f"{path.name} is not valid UTF-8 text"
+            "This file is not valid UTF-8 text"
         ) from exc
     if not text.strip():
-        raise TextExtractionError(f"{path.name} contains no extractable text")
+        raise TextExtractionError("This file contains no extractable text")
     return ExtractedDocument(
         sections=[ExtractedSection(text=text, metadata={"source": str(path)})]
     )
@@ -78,7 +78,7 @@ def _extract_pdf(path: Path) -> ExtractedDocument:
             )
     if not sections:
         raise TextExtractionError(
-            f"{path.name} has no extractable text; scanned PDFs require OCR, "
+            "This PDF has no extractable text. Scanned PDFs need OCR, "
             "which is not supported yet"
         )
     return ExtractedDocument(sections=sections)
@@ -92,7 +92,7 @@ def _extract_docx(path: Path) -> ExtractedDocument:
         if paragraph.text.strip()
     ]
     if not paragraphs:
-        raise TextExtractionError(f"{path.name} contains no extractable text")
+        raise TextExtractionError("This file contains no extractable text")
     return ExtractedDocument(
         sections=[
             ExtractedSection(
