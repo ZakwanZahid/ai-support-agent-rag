@@ -202,7 +202,7 @@ Severity: **B** blocks deployment · **S** security · **R** reliability ·
 | 23 | P | No light/dark theme switching, although the tokens support it | — | Won't do for now |
 | 24 | P | No copy, regenerate, edit, or delete on chat messages | — | Won't do for now |
 | 25 | E | Frontend had no automated tests | 11 | Closed |
-| 26 | E | No CI, so tests run only when invoked locally | 17 | Open |
+| 26 | E | No CI, so tests run only when invoked locally | 11b | Closed |
 | 27 | E | No structured logging, metrics, tracing, or error reporting | 17 | Open |
 | 28 | E | No cost controls on OpenAI usage | 17 | Open |
 | 29 | E | Accessibility not formally audited; ARIA, skip links, and focus states are in place but unverified by a screen reader or axe | — | Deferred |
@@ -216,10 +216,11 @@ is a mid-task logout during a long session, the benefit is not building token
 rotation and revocation for a project with no production users. ADR in Phase 13
 will record it.
 
-**Item 25 closed in Phase 11.** The frontend now has 41 Vitest tests covering
+**Items 25 and 26 closed in Phases 11 and 11b.** The frontend now has 41 Vitest tests covering
 the terminology module and API client, plus one Playwright flow covering signup
 through to a sourced answer. Overall unit coverage is intentionally low; see
-"Testing strategy" in the README.
+"Testing strategy" in the README. CI runs the cheap suites on every push; the
+end-to-end flow is triggered manually because each run costs real API credit.
 
 **Items 7, 21 to 24, and 29 are marked "won't do for now" rather than "open".**
 They are real gaps, but they demonstrate no system-design thinking a reviewer
