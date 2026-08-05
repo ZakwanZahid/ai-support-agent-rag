@@ -1,461 +1,277 @@
-# AI Support Agent RAG
+# SupportMind
 
-Production-style, multi-tenant AI support workspace using Retrieval-Augmented Generation (RAG) for customer support workflows.
+**Upload your support documents, then ask them questions and get answers with the passages they came from.**
 
-The repository includes a FastAPI and PostgreSQL/pgvector backend plus a responsive Next.js dashboard for the full knowledge-base-to-cited-answer flow.
+A multi-tenant RAG application: FastAPI and Postgres/pgvector behind a Next.js product surface that never asks the user to understand retrieval, embeddings, or indexing.
 
-## Project Goals
+<!-- Badge placeholders. Wired to real workflow runs once CI exists (Phase 17). -->
+![Backend tests](https://img.shields.io/badge/backend%20tests-49%20passing-brightgreen)
+![Frontend tests](https://img.shields.io/badge/frontend%20tests-41%20passing-brightgreen)
+![E2E](https://img.shields.io/badge/e2e-1%20flow-brightgreen)
+![Coverage](https://img.shields.io/badge/coverage-pending%20CI-lightgrey)
 
-- Ingest organization support documents, FAQs, policies, and internal knowledge.
-- Generate grounded AI answers with citations.
-- Support multi-turn conversations and escalation to human agents.
-- Provide an admin experience for managing knowledge sources and reviewing usage.
-- Use a production-minded backend, worker, database, cache, and frontend architecture.
+<!-- Placeholders until Phase 18 deploys. Do not link these until they resolve. -->
+🔗 **Live demo** — _not deployed yet_ · 🎥 **Demo video** — _not recorded yet_
 
-## Tech Stack
+<!--
+  Screenshot goes here once Phase 18 deploys and seeds the demo workspace, so
+  it shows real data. Kept as a comment rather than an <img> tag so the README
+  does not render a broken image in the meantime:
+  ![SupportMind dashboard](docs/screenshots/dashboard.png)
+-->
 
-- Backend API: FastAPI and SQLAlchemy
-- Frontend: Next.js App Router, React, and TypeScript
-- UI: Tailwind CSS and reusable shadcn/ui-style components
-- Frontend data and forms: TanStack Query, Axios, React Hook Form, and Zod
-- Database: PostgreSQL
-- Vector Search: pgvector
-- Local infrastructure: Docker and Docker Compose
+---
 
-Redis, durable workers, and LangGraph orchestration are future milestones rather than current runtime dependencies.
+## The problem
 
-## Planned Capabilities
+Most teams already have the documentation that answers their support questions. It's in a PDF, a wiki page, and one person's head. Finding the answer means knowing which of those to open.
 
-- User authentication and organization workspaces
-- Document upload and source management
-- Text extraction, chunking, embedding, and indexing
-- Semantic search over support knowledge
-- RAG answer generation with source citations
-- Conversation history
-- Human escalation workflow
-- Admin dashboard
-- Background ingestion pipeline
-- Observability, evaluation, and usage reporting
+General-purpose AI tools make that worse rather than better: ask one about your refund window and it will confidently describe a policy your company never had. And an answer you can't check is an answer you still have to verify by hand.
+
+There's a third problem, which is the one this project is really about. The obvious way to build a retrieval app leaks its own machinery into the interface — upload a file, click **Ingest**, wait, click **Index**, wait, then chat. Those are two operations because they have different failure modes, which is a good backend design and a terrible product. The user's intent is *"make this document answerable"* — one thing, not two.
+
+## What I built
+
+A support assistant that answers only from documents you gave it, and shows the passage behind every answer.
+
+The engineering interest isn't the RAG pipeline — that part is well-trodden. It's the layer above it: taking a system whose natural vocabulary is *organizations, knowledge bases, ingestion, indexing, citations* and presenting it as *workspaces, knowledge spaces, "Prepare for chat", sources* — without the translation rotting the first time someone adds a component.
+
+## Architecture
+
+```mermaid
+flowchart TB
+    subgraph client["Browser"]
+        UI["Next.js App Router<br/>React · TanStack Query"]
+    end
+
+    subgraph api["FastAPI"]
+        Routes["Routes<br/>auth · workspaces · documents · chat"]
+        Deps["Dependencies<br/>JWT decode · membership · role checks"]
+        Services["Services<br/>documents · preparation · RAG"]
+        Jobs["BackgroundTasks<br/>extract → index"]
+    end
+
+    subgraph data["Storage"]
+        PG[("PostgreSQL<br/>+ pgvector")]
+        Disk[["Uploaded files<br/>(local disk)"]]
+    end
+
+    subgraph external["OpenAI"]
+        Embed["text-embedding-3-small"]
+        Chat["gpt-4o-mini"]
+    end
+
+    UI -->|"JSON + Bearer token"| Routes
+    Routes --> Deps --> Services
+    Services --> PG
+    Services --> Disk
+    Services -.->|"schedules"| Jobs
+    Jobs --> PG
+    Jobs -->|"embed chunks"| Embed
+    Services -->|"answer from retrieved context"| Chat
+    UI -.->|"polls document status"| Routes
+```
+
+Every tenant-owned row carries an `organization_id`, and membership is checked on every request before a service runs. Embeddings live in the same Postgres instance as the chunk metadata, through pgvector — one datastore, transactional with the rest of the data.
+
+### How "Prepare for chat" works
+
+The single user-facing action, and the piece I'd point a reviewer at first:
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User
+    participant UI as Browser
+    participant API as FastAPI
+    participant Job as Background task
+    participant DB as Postgres
+    participant AI as OpenAI
+
+    User->>UI: Upload a document
+    UI->>API: POST /documents/upload
+    API->>DB: store file, status = pending
+    UI->>API: POST /documents/{id}/prepare
+    API->>DB: status = processing
+    API-->>UI: 202 Accepted
+    API->>Job: schedule
+
+    Job->>DB: extract text, write chunks
+    Note over Job,DB: status = processed
+    Job->>AI: embed chunks
+    AI-->>Job: vectors
+    Job->>DB: store embeddings, status = indexed
+
+    loop until settled
+        UI->>API: GET /documents/{id}
+        API-->>UI: Uploaded → Processing → Extracted → Ready
+    end
+```
+
+Chaining happens server-side, deliberately. Orchestrating it from the browser means the sequence breaks if the tab closes between the two calls. If extraction yields no chunks, the job stops rather than indexing nothing, and the document reports `Failed` with the reason.
+
+Answers are assembled the same way every time: embed the question, retrieve the nearest chunks scoped to one knowledge space, build a context block, and ask the model to answer only from it. The chunks that fed the answer are stored alongside the message, which is what the UI shows as **Sources**.
+
+## Tech stack
+
+| Layer | Choice |
+| --- | --- |
+| Frontend | Next.js (App Router), TypeScript, Tailwind, shadcn/ui-style components |
+| Data fetching | TanStack Query · Axios · React Hook Form · Zod |
+| API | FastAPI, SQLAlchemy 2.0, Pydantic v2, Alembic |
+| Database | PostgreSQL + pgvector |
+| Models | OpenAI `text-embedding-3-small`, `gpt-4o-mini`, behind provider interfaces |
+| Tests | pytest (49) · Vitest (41) · Playwright (1 end-to-end flow) |
+
+## Key engineering decisions
+
+**One module owns the product vocabulary.** [`terminology.ts`](frontend/src/lib/terminology.ts) holds a single descriptor table; components derive labels, badge tones, timeline position, and *whether to keep polling* from it. `StatusBadge` doesn't know what `indexed` means — it asks. Enforced by tests that assert no forbidden API term ever appears in user-facing copy, so the rule fails loudly rather than eroding.
+
+**Two operations, one endpoint.** [`POST /documents/{id}/prepare`](backend/app/api/v1/preparation.py) chains extraction and indexing in one background task, with `409` guards for already-running and already-ready. See ADR-025.
+
+**Aggregate counts, not N+1.** Knowledge bases return `document_count`/`ready_document_count`; conversations return `message_count`/`last_message_preview`. Grouped and correlated subqueries, so a list is one round trip regardless of length — instead of the client fetching every child row to count it. See ADR-031.
+
+**Tenant scoping is a dependency, not a convention.** `require_organization_member` and `require_role` run before any service. A missing workspace and a workspace you don't belong to both return `404`, so membership isn't discoverable by probing.
+
+**Provider interfaces over SDK calls.** Embedding and chat both sit behind small protocols resolved by a factory, so swapping providers is one adapter rather than a search-and-replace.
+
+## Known limitations
+
+Stated rather than hidden. The full list with severities is in [docs/10-frontend-redesign.md](docs/10-frontend-redesign.md).
+
+**Blocks production deployment**
+- CORS middleware only registers when `APP_ENV` is a local value, so a deployed frontend would be blocked by the browser
+- Uploads are written to the container filesystem, which is ephemeral on most hosts
+- The JWT secret falls back to a known default instead of failing loudly
+
+**Security**
+- Tokens in `localStorage` — an XSS bug becomes a session compromise (ADR-021)
+- Sessions expire hard at 60 minutes with no refresh
+- No rate limiting, so login is brute-forceable and chat spend is uncapped
+- Tenant isolation is enforced in application queries, not by Postgres RLS
+
+**Reliability**
+- Background tasks aren't durable; a restart mid-preparation strands a document in `processing`
+- No retry or backoff when the embedding provider fails
+
+**Scale and product**
+- No pagination anywhere; document search and filtering are client-side
+- Nothing can be deleted — documents, knowledge spaces, or workspaces
+- Vector-only retrieval, naive character-window chunking, no re-ranking, and no evaluation harness to tell whether a change helped
+- Answers don't stream
+
+**Engineering**
+- No CI yet, so tests run only when invoked locally
+- No structured logging, metrics, or error reporting
+- Unit coverage is 7% overall by design — see the testing note below
+
+## Testing
+
+The strategy is deliberate rather than uniform: unit-test the modules whose correctness everything else depends on, and cover the actual product flow end to end.
+
+| Suite | Count | What it covers |
+| --- | --- | --- |
+| pytest | 49 | Auth, tenancy, upload, ingestion, indexing, search, RAG chat, preparation, aggregates, workspace settings |
+| Vitest | 41 | `terminology.ts` (100%), `api/client.ts` (91%), `StatusBadge` (100%) |
+| Playwright | 1 flow | Signup → onboarding → upload → prepare → ask → sourced answer |
+
+Overall unit coverage is ~7% because components and hooks are not unit-tested. Inflating that number by testing presentational markup would cost real time and prove little; the flow those components participate in is covered by the end-to-end spec instead. The end-to-end test also asserts the negative case that matters most — that no API vocabulary or UUID ever reaches the screen.
+
+```bash
+cd backend && pytest              # 49 tests
+cd frontend && npm test           # 41 unit tests
+cd frontend && npm run test:e2e   # end-to-end (needs backend + OpenAI key)
+```
+
+## What I'd build next
+
+In priority order: durable background jobs (Redis + RQ) so preparation survives a restart; rate limiting and Postgres RLS as defense-in-depth; deletion and pagination; and an evaluation harness before any further retrieval changes, so improvements can be measured rather than assumed.
+
+Agent orchestration (tool-calling, LangGraph) was scoped out deliberately — the retrieval and evaluation work demonstrates the same system-design thinking with less surface area to maintain.
+
+---
+
+## Local setup
+
+Requires Docker, Python 3.12+, Node 22.13+, and an OpenAI API key.
+
+**1. Database**
+
+```bash
+docker compose up -d
+```
+
+**2. Backend**
+
+```bash
+cd backend
+python -m venv .venv && .venv/Scripts/activate   # macOS/Linux: source .venv/bin/activate
+pip install -r requirements.txt
+cp ../.env.example ../.env                        # then set OPENAI_API_KEY
+alembic upgrade head
+uvicorn app.main:app --reload --port 8000
+```
+
+API docs at http://127.0.0.1:8000/docs.
+
+**3. Frontend**
+
+```bash
+cd frontend
+npm install
+cp .env.example .env.local                        # NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8000
+npm run dev
+```
+
+Open http://localhost:3000.
+
+Detailed configuration is in [backend/README.md](backend/README.md) and [frontend/README.md](frontend/README.md).
+
+## Demo flow
+
+1. Open `/` — the landing page explains the product before asking for an account.
+2. Register. A new account is routed into onboarding, not an empty dashboard.
+3. Create a workspace, then choose what the assistant will help with.
+4. Upload a policy document. Preparation starts automatically; the timeline moves Uploaded → Processing → Extracted → Ready.
+5. Ask the suggested question. The answer arrives with the passage it came from.
+6. Finish setup and confirm the dashboard reads "Your assistant is ready".
+
+Nothing in that flow requires knowing what ingestion, indexing, or embeddings are.
+
+## Repository structure
+
+```text
+backend/           FastAPI application, SQLAlchemy models, Alembic migrations, 49 tests
+  app/api/         Versioned routes and dependencies
+  app/services/    Business logic
+  app/ingestion/   Text extraction and chunking
+  app/embeddings/  Provider interface and indexing
+  app/rag/         Context building, prompts, citation assembly
+frontend/          Next.js App Router application
+  app/             Routes
+  src/components/  Layout, marketing, onboarding, dashboard, knowledge, documents, chat, settings
+  src/lib/         API client, auth, terminology
+  tests/           Vitest unit tests and the Playwright flow
+docs/              Architecture, schema, decisions (32 ADRs), redesign write-up
+```
 
 ## Documentation
 
-- [Architecture](docs/architecture.md)
-- [Database Schema](docs/03-database-schema.md)
-- [Authentication and Tenancy](docs/04-auth-tenancy.md)
-- [Knowledge Bases and Document Uploads](docs/05-document-upload.md)
-- [Document Ingestion](docs/07-document-ingestion.md)
-- [Embedding Indexing and Search](docs/08-embedding-indexing.md)
-- [RAG Chat with Citations](docs/09-rag-chat.md)
-- [Frontend v1](docs/10-frontend-v1.md) (superseded)
-- [Frontend Redesign](docs/10-frontend-redesign.md)
-- [API Design](docs/api-design.md)
-- [System Design Decisions](docs/06-decisions.md)
-
-## Repository Structure
-
-```text
-.
-|-- README.md
-|-- backend/
-|   |-- app/
-|   |-- alembic/
-|   |-- alembic.ini
-|   |-- requirements.txt
-|   `-- README.md
-|-- frontend/
-|   |-- app/
-|   |-- src/
-|   |-- .env.example
-|   |-- package.json
-|   `-- README.md
-`-- docs/
-    |-- 06-decisions.md
-    |-- 09-rag-chat.md
-    `-- 10-frontend-v1.md
-```
-
-## Current Status
-
-The current local product flow includes:
-
-- FastAPI app factory and `/health` endpoint
-- Pydantic settings and environment configuration
-- SQLAlchemy session setup
-- SQLAlchemy models and initial Alembic migration for the multi-tenant schema
-- PostgreSQL + pgvector Docker Compose setup
-- JWT authentication, current-user resolution, and organization membership enforcement
-- Organization-scoped knowledge-base APIs and pending document uploads
-- Background text extraction and custom document chunking
-- OpenAI embedding indexing through a provider abstraction
-- Tenant-scoped pgvector semantic search
-- Grounded RAG chat with persisted conversations, messages, and citations
-- OpenAI chat-model adapter behind a provider abstraction
-- Single-call document preparation that chains extraction and indexing
-- Marketing landing page, guided onboarding, dashboard, knowledge, documents, chat, chat threads, and settings pages
-- Responsive desktop and mobile application navigation
-- Typed API modules with bearer authentication and consistent error handling
-- Loading, empty, disabled, success, and error states backed by real API data
-
-Streaming, LangGraph orchestration, escalation, billing, analytics, team invitations, and durable workers are not implemented.
-
-## Frontend Redesign
-
-The interface was rebuilt as **SupportMind**, a product surface rather than a CRUD wrapper over the API. The full write-up is in [Frontend Redesign](docs/10-frontend-redesign.md); the short version:
-
-- **Backend vocabulary stays in the backend.** The UI says workspace, knowledge space, sources, and chat thread. One module owns the translation, so the mapping is enforced by construction rather than by convention.
-- **One action instead of two.** "Prepare for chat" calls a single endpoint that runs extraction and indexing server-side, with a visible four-step progress timeline instead of a spinner.
-- **New accounts are guided.** Users without a workspace or knowledge space go through a four-step setup that ends with a real answer from a real document, rather than landing on an empty dashboard.
-- **The root route explains the product.** `/` is a landing page instead of a redirect to login.
-- **Verified responsive.** Every page is measured at 360, 768, 1024, and 1440 rather than checked by eye.
-
-## Database Schema
-
-The initial schema covers organizations and memberships, knowledge bases, documents and chunks, conversations and messages, citations, and message feedback. See [the database schema](docs/03-database-schema.md) for relationships, tenant isolation choices, indexes, and pgvector storage.
-
-Start local PostgreSQL with pgvector:
-
-```powershell
-Copy-Item .env.example .env
-docker compose up -d postgres
-```
-
-Run migrations from `backend/`:
-
-```powershell
-Copy-Item ..\.env.example .env
-.\.venv\Scripts\python.exe -m alembic upgrade head
-```
-
-## Backend API and Configuration
-
-Required local backend settings:
-
-```env
-FRONTEND_ORIGIN=http://localhost:3000
-JWT_SECRET_KEY=change-me-in-development
-JWT_ALGORITHM=HS256
-ACCESS_TOKEN_EXPIRE_MINUTES=60
-UPLOAD_DIR=storage/uploads
-MAX_UPLOAD_SIZE_MB=10
-AUTO_INGEST_ON_UPLOAD=true
-CHUNK_SIZE=1200
-CHUNK_OVERLAP=200
-OPENAI_API_KEY=
-EMBEDDING_PROVIDER=openai
-EMBEDDING_MODEL=text-embedding-3-small
-EMBEDDING_DIMENSIONS=1536
-INDEX_BATCH_SIZE=50
-CHAT_PROVIDER=openai
-CHAT_MODEL=gpt-4o-mini
-CHAT_TEMPERATURE=0.2
-RAG_TOP_K=5
-RAG_MAX_CONTEXT_CHARS=12000
-```
-
-Available endpoints:
-
-- `POST /api/v1/auth/register`
-- `POST /api/v1/auth/login`
-- `GET /api/v1/auth/me`
-- `POST /api/v1/organizations`
-- `GET /api/v1/organizations`
-- `GET /api/v1/organizations/{organization_id}`
-- `POST /api/v1/organizations/{organization_id}/knowledge-bases`
-- `GET /api/v1/organizations/{organization_id}/knowledge-bases`
-- `GET /api/v1/organizations/{organization_id}/knowledge-bases/{knowledge_base_id}`
-- `POST /api/v1/organizations/{organization_id}/knowledge-bases/{knowledge_base_id}/documents/upload`
-- `GET /api/v1/organizations/{organization_id}/documents`
-- `GET /api/v1/organizations/{organization_id}/documents/{document_id}`
-- `POST /api/v1/organizations/{organization_id}/documents/{document_id}/ingest`
-- `POST /api/v1/organizations/{organization_id}/documents/{document_id}/index`
-- `POST /api/v1/organizations/{organization_id}/knowledge-bases/{knowledge_base_id}/search`
-- `POST /api/v1/organizations/{organization_id}/conversations`
-- `GET /api/v1/organizations/{organization_id}/conversations`
-- `GET /api/v1/organizations/{organization_id}/conversations/{conversation_id}`
-- `POST /api/v1/organizations/{organization_id}/conversations/{conversation_id}/messages`
-
-Register:
-
-```powershell
-curl.exe -X POST http://127.0.0.1:8000/api/v1/auth/register `
-  -H "Content-Type: application/json" `
-  -d '{"email":"user@example.com","password":"strongpassword","full_name":"User Name"}'
-```
-
-Login:
-
-```powershell
-curl.exe -X POST http://127.0.0.1:8000/api/v1/auth/login `
-  -H "Content-Type: application/json" `
-  -d '{"email":"user@example.com","password":"strongpassword"}'
-```
-
-Use the returned access token in protected requests:
-
-```powershell
-curl.exe http://127.0.0.1:8000/api/v1/auth/me `
-  -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
-```
-
-Create a knowledge base:
-
-```powershell
-curl.exe -X POST http://127.0.0.1:8000/api/v1/organizations/ORGANIZATION_ID/knowledge-bases `
-  -H "Authorization: Bearer YOUR_ACCESS_TOKEN" `
-  -H "Content-Type: application/json" `
-  -d '{"name":"Product Docs","description":"Product support documents"}'
-```
-
-Upload a document:
-
-```powershell
-curl.exe -X POST http://127.0.0.1:8000/api/v1/organizations/ORGANIZATION_ID/knowledge-bases/KNOWLEDGE_BASE_ID/documents/upload `
-  -H "Authorization: Bearer YOUR_ACCESS_TOKEN" `
-  -F "title=Getting Started" `
-  -F "file=@C:\path\to\getting-started.txt;type=text/plain"
-```
-
-Uploads create a `pending` document. Background ingestion changes it to `processing`, then `processed` or `failed`. A later embedding phase will move processed documents to `indexed`. Files are stored under `storage/uploads/{organization_id}/{knowledge_base_id}/`.
-
-Manually schedule ingestion:
-
-```powershell
-curl.exe -X POST "http://127.0.0.1:8000/api/v1/organizations/ORGANIZATION_ID/documents/DOCUMENT_ID/ingest" `
-  -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
-```
-
-Reprocess a completed document and replace its chunks:
-
-```powershell
-curl.exe -X POST "http://127.0.0.1:8000/api/v1/organizations/ORGANIZATION_ID/documents/DOCUMENT_ID/ingest?force=true" `
-  -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
-```
-
-Apply the status-constraint migration before testing ingestion:
-
-```powershell
-cd backend
-.\.venv\Scripts\python.exe -m alembic upgrade head
-```
-
-Set a valid `OPENAI_API_KEY` in `backend/.env`, then index a processed document:
-
-```powershell
-curl.exe -X POST "http://127.0.0.1:8000/api/v1/organizations/ORGANIZATION_ID/documents/DOCUMENT_ID/index" `
-  -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
-```
-
-Search the indexed knowledge base:
-
-```powershell
-curl.exe -X POST "http://127.0.0.1:8000/api/v1/organizations/ORGANIZATION_ID/knowledge-bases/KNOWLEDGE_BASE_ID/search" `
-  -H "Authorization: Bearer YOUR_ACCESS_TOKEN" `
-  -H "Content-Type: application/json" `
-  -d '{"query":"What is the refund policy?","top_k":5}'
-```
-
-Create a conversation:
-
-```powershell
-curl.exe -X POST "http://127.0.0.1:8000/api/v1/organizations/ORGANIZATION_ID/conversations" `
-  -H "Authorization: Bearer YOUR_ACCESS_TOKEN" `
-  -H "Content-Type: application/json" `
-  -d '{"title":"Refund policy question","knowledge_base_id":"KNOWLEDGE_BASE_ID"}'
-```
-
-Send a grounded RAG question:
-
-```powershell
-curl.exe -X POST "http://127.0.0.1:8000/api/v1/organizations/ORGANIZATION_ID/conversations/CONVERSATION_ID/messages" `
-  -H "Authorization: Bearer YOUR_ACCESS_TOKEN" `
-  -H "Content-Type: application/json" `
-  -d '{"question":"What is the refund policy?","knowledge_base_id":"KNOWLEDGE_BASE_ID","top_k":5}'
-```
-
-The response contains the stored user and assistant message IDs, the grounded answer, and application-generated citation metadata:
-
-```json
-{
-  "conversation_id": "...",
-  "user_message_id": "...",
-  "assistant_message_id": "...",
-  "answer": "Customers can request a refund within 14 days of purchase.",
-  "citations": [
-    {
-      "document_id": "...",
-      "document_title": "sample-faq",
-      "chunk_id": "...",
-      "quote": "Customers can request a refund within 14 days of purchase.",
-      "score": 0.89,
-      "chunk_metadata": {}
-    }
-  ]
-}
-```
-
-## Complete Manual RAG Test Flow
-
-Use Swagger at `http://127.0.0.1:8000/docs`:
-
-1. Register a user and log in.
-2. Authorize Swagger with `Bearer <access_token>`.
-3. Create an organization.
-4. Create a knowledge base.
-5. Upload a sample support document.
-6. Ingest the document.
-7. Index the document.
-8. Create a conversation associated with the knowledge base.
-9. Send a question to the conversation message endpoint.
-10. Confirm the answer uses only uploaded facts and returns source citations.
-11. Get the conversation and confirm both messages and assistant citations are present.
-
-Verify persistence in pgAdmin:
-
-```sql
-SELECT * FROM conversations WHERE id = '<conversation_id>';
-SELECT * FROM messages WHERE conversation_id = '<conversation_id>' ORDER BY created_at, id;
-SELECT mc.*
-FROM message_citations AS mc
-JOIN messages AS m ON m.id = mc.message_id
-WHERE m.conversation_id = '<conversation_id>';
-```
-
-See [RAG Chat with Citations](docs/09-rag-chat.md) for the full flow, tenant-isolation rules, error behavior, and 14-step Swagger checklist.
-
-The lifecycle is `pending → processing → processed → indexed`, with `failed` used when ingestion or indexing cannot complete. OpenAI credentials are required for indexing and search in the current MVP.
-
-Run tests from `backend/`:
-
-```powershell
-.\.venv\Scripts\python.exe -m pytest
-```
-
-## Frontend Setup
-
-Frontend requirements:
-
-- Node.js 22.13 or newer
-- The FastAPI backend available at the configured API base URL
-
-Install and configure from the repository root:
-
-```powershell
-cd frontend
-npm install
-Copy-Item .env.example .env.local
-```
-
-The frontend environment contains only the public API origin:
-
-```env
-NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8000
-```
-
-Do not put an OpenAI key or another server secret in a `NEXT_PUBLIC_*` variable. Browser code can read all variables with that prefix.
-
-Frontend v1 stores the API JWT in `localStorage`. This is acceptable for the local MVP; a production authentication milestone should move it to a server-managed `Secure`, `HttpOnly` cookie with appropriate CSRF protection.
-
-Useful frontend checks:
-
-```powershell
-npm run typecheck
-npm run lint
-npm run build
-```
-
-Start local development with:
-
-```powershell
-npm run dev
-```
-
-The dashboard is then available at `http://localhost:3000`. See [frontend/README.md](frontend/README.md) for project structure and troubleshooting.
-
-## Run Backend and Frontend Together
-
-From the repository root, prepare the backend:
-
-```powershell
-Copy-Item .env.example .env
-Copy-Item .env.example backend/.env
-docker compose up -d postgres
-cd backend
-python -m venv .venv
-.\.venv\Scripts\python.exe -m pip install -r requirements.txt
-.\.venv\Scripts\python.exe -m alembic upgrade head
-```
-
-Set a valid `OPENAI_API_KEY` in the backend environment before indexing or RAG chat. Never commit the populated `.env`.
-
-Run the API in one terminal:
-
-```powershell
-cd backend
-.\.venv\Scripts\python.exe -m uvicorn app.main:app --reload
-```
-
-Run the frontend in a second terminal:
-
-```powershell
-cd frontend
-npm install
-Copy-Item .env.example .env.local
-npm run dev
-```
-
-Use:
-
-- Frontend: `http://localhost:3000`
-- FastAPI OpenAPI/Swagger: `http://127.0.0.1:8000/docs`
-- FastAPI health check: `http://127.0.0.1:8000/health`
-
-If browser API requests are blocked, verify that the frontend base URL matches the running API and that backend `FRONTEND_ORIGIN` is exactly `http://localhost:3000`. The FastAPI CORS middleware uses that origin only in local or development environments; it does not open the API to `*`.
-
-## Manual Product Demo
-
-1. Open `/` and confirm the landing page explains the product before asking for an account.
-2. Register through the frontend. A new account is routed into onboarding, not the dashboard.
-3. Create a workspace, then choose what the assistant will help with to create a knowledge space.
-4. Upload a small policy document. Preparation starts automatically; watch the timeline move Uploaded → Processing → Extracted → Ready.
-5. Ask the suggested question and confirm the answer is grounded and lists the passage it came from under "Sources".
-6. Finish onboarding and confirm the dashboard shows "Your assistant is ready" with the real counts.
-7. Open Documents and confirm the document reads "Ready" and offers "Ask about this".
-8. Open Ask AI, ask an unrelated question, and confirm the safe no-context answer appears without invented sources.
-9. Open Chat threads and confirm the saved thread reloads with its messages and sources.
-10. Open Settings and rename the workspace; confirm the workspace switcher updates.
-11. Log out and confirm the dashboard redirects to login.
-
-Nothing in this flow requires knowing what ingestion, indexing, or embeddings are, which is the point of the redesign.
-
-The backend-only Swagger and pgAdmin verification flow remains documented in [RAG Chat with Citations](docs/09-rag-chat.md).
+- [Architecture](docs/architecture.md) · [Database schema](docs/03-database-schema.md) · [API design](docs/api-design.md)
+- [Auth and tenancy](docs/04-auth-tenancy.md) · [Upload](docs/05-document-upload.md) · [Ingestion](docs/07-document-ingestion.md) · [Indexing](docs/08-embedding-indexing.md) · [RAG chat](docs/09-rag-chat.md)
+- [Frontend redesign](docs/10-frontend-redesign.md) — terminology mapping, flows, and the full limitations list
+- [Architecture decisions](docs/06-decisions.md) — 32 ADRs
+- [Learning notes](docs/learning-notes/) — per-phase write-ups
 
 ## Screenshots
 
-Screenshot slots are intentionally left explicit until final demo data and deployment branding are ready:
+Captured after deployment so they show real seeded data rather than test fixtures.
 
-| View | Placeholder |
+| View | Path |
 | --- | --- |
 | Landing page | `docs/screenshots/landing.png` |
 | Onboarding | `docs/screenshots/onboarding.png` |
 | Dashboard | `docs/screenshots/dashboard.png` |
-| Knowledge space with documents | `docs/screenshots/knowledge-space.png` |
 | Preparing a document | `docs/screenshots/prepare-timeline.png` |
 | Grounded answer with sources | `docs/screenshots/chat-sources.png` |
 | Mobile chat | `docs/screenshots/mobile-chat.png` |
-
-These paths are placeholders, not claims that screenshots or a public deployment are already available.
-
-## Local Setup References
-
-- [Backend setup](backend/README.md)
-- [Frontend setup](frontend/README.md)
-- [Frontend redesign architecture and decisions](docs/10-frontend-redesign.md)
-
-## Future Improvements
-
-- Slack, WhatsApp, and website widget integrations
-- RAG evaluation dashboard
-- Billing and usage limits
-- Role-based access control
-- Advanced analytics for support teams
-- Multi-region deployment strategy
