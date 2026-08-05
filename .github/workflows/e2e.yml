@@ -1,0 +1,115 @@
+name: End-to-end
+
+# Deliberately not on every pull request. This workflow signs up a user,
+# uploads a document, and makes real embedding and chat calls, so each run
+# costs OpenAI credit and takes minutes rather than seconds. Run it before a
+# release, or after changing onboarding, preparation, or chat.
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: e2e-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  e2e:
+    name: Signup to sourced answer
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: ai_support_agent_rag
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/ai_support_agent_rag
+      JWT_SECRET_KEY: ci-only-not-a-real-secret
+      FRONTEND_ORIGIN: http://localhost:3000
+      # CORS middleware currently only registers for local-looking environments
+      # (limitation #1). Until that is fixed in Phase 18, the API has to run as
+      # "local" here or the browser blocks every request.
+      APP_ENV: local
+      # Preparation owns the whole extract-then-index lifecycle; auto-ingest
+      # would race it. See ADR-032.
+      AUTO_INGEST_ON_UPLOAD: "false"
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fail early if the API key is missing
+        # Without this the run fails much later, during indexing, with an error
+        # that looks like a product bug rather than a missing secret.
+        run: |
+          if [ -z "$OPENAI_API_KEY" ]; then
+            echo "::error::OPENAI_API_KEY repository secret is not set. This workflow needs it to embed documents and answer questions."
+            exit 1
+          fi
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: pip install -r requirements.txt
+
+      - name: Run migrations
+        working-directory: backend
+        run: alembic upgrade head
+
+      - name: Start the API
+        working-directory: backend
+        run: |
+          uvicorn app.main:app --host 127.0.0.1 --port 8000 --log-level warning &
+          for i in $(seq 1 30); do
+            if curl -sf http://127.0.0.1:8000/health > /dev/null; then
+              echo "API is up"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "::error::API did not become healthy within 30 seconds"
+          exit 1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Install Playwright browser
+        working-directory: frontend
+        run: npx playwright install --with-deps chromium
+
+      - name: Run the end-to-end flow
+        working-directory: frontend
+        # Playwright starts the Next.js dev server itself via its webServer config.
+        run: npx playwright test
+        env:
+          NEXT_PUBLIC_API_BASE_URL: http://127.0.0.1:8000
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: frontend/playwright-report/
+          retention-days: 7

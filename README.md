@@ -4,11 +4,10 @@
 
 A multi-tenant RAG application: FastAPI and Postgres/pgvector behind a Next.js product surface that never asks the user to understand retrieval, embeddings, or indexing.
 
-<!-- Badge placeholders. Wired to real workflow runs once CI exists (Phase 17). -->
-![Backend tests](https://img.shields.io/badge/backend%20tests-49%20passing-brightgreen)
-![Frontend tests](https://img.shields.io/badge/frontend%20tests-41%20passing-brightgreen)
-![E2E](https://img.shields.io/badge/e2e-1%20flow-brightgreen)
-![Coverage](https://img.shields.io/badge/coverage-pending%20CI-lightgrey)
+[![CI](https://github.com/ZakwanZahid/ai-support-agent-rag/actions/workflows/ci.yml/badge.svg)](https://github.com/ZakwanZahid/ai-support-agent-rag/actions/workflows/ci.yml)
+![Backend tests](https://img.shields.io/badge/backend-49%20tests-brightgreen)
+![Frontend tests](https://img.shields.io/badge/frontend-41%20tests-brightgreen)
+![E2E](https://img.shields.io/badge/e2e-1%20flow%20(manual)-blue)
 
 <!-- Placeholders until Phase 18 deploys. Do not link these until they resolve. -->
 🔗 **Live demo** — _not deployed yet_ · 🎥 **Demo video** — _not recorded yet_
@@ -161,8 +160,8 @@ Stated rather than hidden. The full list with severities is in [docs/10-frontend
 - Answers don't stream
 
 **Engineering**
-- No CI yet, so tests run only when invoked locally
 - No structured logging, metrics, or error reporting
+- The end-to-end test runs on demand rather than on every push, so a regression only it would catch can reach `main`
 - Unit coverage is 7% overall by design — see the testing note below
 
 ## Testing
@@ -182,6 +181,10 @@ cd backend && pytest              # 49 tests
 cd frontend && npm test           # 41 unit tests
 cd frontend && npm run test:e2e   # end-to-end (needs backend + OpenAI key)
 ```
+
+**In CI:** [`ci.yml`](.github/workflows/ci.yml) runs backend tests plus frontend lint, typecheck, unit tests, and build on every push and pull request — no secrets, no database service, no paid API calls.
+
+[`e2e.yml`](.github/workflows/e2e.yml) is manual (`workflow_dispatch`) because each run makes real embedding and chat calls. Running it on every push would turn a few cents into a standing bill and a bottleneck, and the usual result is that someone switches it off. Keeping it deliberate keeps it trustworthy. It needs an `OPENAI_API_KEY` repository secret.
 
 ## What I'd build next
 
