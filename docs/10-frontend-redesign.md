@@ -169,16 +169,62 @@ One subtlety worth recording: the first client render reuses the server snapshot
 
 ## Known limitations
 
-- **`localStorage` tokens.** Readable by any script on the page, so an XSS bug becomes a session compromise. The production form is a `Secure`, `HttpOnly`, `SameSite` cookie with CSRF protection, which needs a server-side session endpoint.
-- **Sessions expire after 60 minutes with no refresh.** A user working for longer is redirected to login mid-task and loses their place. A refresh token or sliding expiry is the fix.
-- **Preparation is polled, not pushed.** The client asks every 1.5 seconds and gives up after two minutes. Server-sent events or a webhook would be less wasteful and would remove the timeout.
-- **Background tasks are not durable.** Preparation runs in FastAPI `BackgroundTasks` (ADR-006), so a restart mid-preparation leaves a document stuck in `processing` with nothing to finish it.
-- **No pagination anywhere.** Documents, knowledge spaces, and chat threads all load in full. Fine at demo scale, not at a thousand documents.
-- **Chat answers are not streamed.** The full answer arrives at once, so a slow model looks like a hang despite the thinking indicator.
-- **No light/dark theme switching.** The token structure supports it; the work was not in scope.
-- **Account details are read-only.** There is no endpoint to change a name, email, or password.
-- **Search and filtering are client-side.** The documents page filters what it has already loaded, which ties it to the no-pagination limitation.
-- **No automated frontend tests.** The backend has 49; the frontend is verified by driving the real UI against the real API. Component and end-to-end tests are the obvious gap.
+The whole list, frontend and backend, with the phase that closes each one. Later
+phases update the Status column rather than leaving stale entries behind.
+
+Severity: **B** blocks deployment · **S** security · **R** reliability ·
+**C** scale · **Q** retrieval quality · **P** product · **E** engineering.
+
+| # | Sev | Limitation | Closed by | Status |
+| --- | --- | --- | --- | --- |
+| 1 | B | CORS middleware only registers when `APP_ENV` is a local value, so a deployed frontend is blocked by the browser | 18 | Open |
+| 2 | B | Uploads written to the container filesystem, which is ephemeral on most hosts | 18 | Open |
+| 3 | B | JWT secret falls back to a known default instead of failing loudly | 18 | Open |
+| 4 | S | Tokens in `localStorage`; an XSS bug becomes a session compromise (ADR-021) | 13 | Open |
+| 5 | S | Sessions expire hard at 60 minutes with no refresh | 13 | Accepted tradeoff |
+| 6 | S | No rate limiting: login is brute-forceable and chat spend is uncapped | 13 | Open |
+| 7 | S | No email verification or password reset | — | Won't do for now |
+| 8 | S | Tenant isolation enforced in application queries, not Postgres RLS (ADR-001) | 13 | Open |
+| 9 | R | `BackgroundTasks` are not durable; a restart strands a document in `processing` | 12 | Open |
+| 10 | R | No retry or backoff when the embedding provider fails | 12 | Open |
+| 11 | R | Status is polled every 1.5s and gives up after 2 minutes, rather than pushed | — | Deferred |
+| 12 | C | No pagination on documents, knowledge spaces, threads, or messages | 14 | Open |
+| 13 | C | Document search and filtering happen client-side | 14 | Open |
+| 14 | C | Nothing can be deleted: documents, knowledge spaces, or workspaces | 14 | Open |
+| 15 | Q | Vector-only retrieval; no keyword or BM25 hybrid | 15 | Open |
+| 16 | Q | No re-ranking of retrieved chunks | 15 | Open |
+| 17 | Q | Naive character-window chunking splits mid-table and mid-list | 15 | Open |
+| 18 | Q | No evaluation harness, so retrieval changes cannot be measured | 15 | Open |
+| 19 | Q | Answers are not streamed; a slow model reads as a hang | — | Deferred |
+| 20 | Q | Sources are not deduplicated across chunks of the same document | 15 | Open |
+| 21 | P | No team management UI, although roles exist in the schema and API | — | Won't do for now |
+| 22 | P | Account details are read-only; no name, email, or password changes | — | Won't do for now |
+| 23 | P | No light/dark theme switching, although the tokens support it | — | Won't do for now |
+| 24 | P | No copy, regenerate, edit, or delete on chat messages | — | Won't do for now |
+| 25 | E | Frontend had no automated tests | 11 | Closed |
+| 26 | E | No CI, so tests run only when invoked locally | 17 | Open |
+| 27 | E | No structured logging, metrics, tracing, or error reporting | 17 | Open |
+| 28 | E | No cost controls on OpenAI usage | 17 | Open |
+| 29 | E | Accessibility not formally audited; ARIA, skip links, and focus states are in place but unverified by a screen reader or axe | — | Deferred |
+
+Three entries are worth expanding, because the reasoning matters more than the
+one-line summary.
+
+**Item 5, the 60-minute session, is an accepted tradeoff rather than an
+oversight.** Refresh tokens were considered and deliberately skipped: the cost
+is a mid-task logout during a long session, the benefit is not building token
+rotation and revocation for a project with no production users. ADR in Phase 13
+will record it.
+
+**Item 25 closed in Phase 11.** The frontend now has 41 Vitest tests covering
+the terminology module and API client, plus one Playwright flow covering signup
+through to a sourced answer. Overall unit coverage is intentionally low; see
+"Testing strategy" in the README.
+
+**Items 7, 21 to 24, and 29 are marked "won't do for now" rather than "open".**
+They are real gaps, but they demonstrate no system-design thinking a reviewer
+would probe, and the time is better spent on durability, isolation, and
+retrieval quality.
 
 ## Future improvements
 

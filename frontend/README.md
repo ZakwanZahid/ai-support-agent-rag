@@ -170,6 +170,16 @@ Confirm the selected knowledge space contains a Ready document and that the ques
 
 Stop the process using the port, or run `npm run dev -- -p 3001`. If the origin changes, update `FRONTEND_ORIGIN` in the backend environment so its development CORS allowlist matches.
 
+### Routes 404, or the UI stops updating mid-flow, after running a build
+
+`next build` and `next dev` both write to `.next`. Running a build while the dev
+server is up corrupts its state: route groups start returning 404, and pages
+stop reacting to data. It looks like an application bug and is not one.
+
+Stop the dev server, `rm -rf .next`, then start it again. This is also why
+`npm run build` immediately before `npm run test:e2e` can fail the end-to-end
+test against an otherwise healthy backend.
+
 ### Install or build fails unexpectedly
 
 - Verify `node --version` satisfies the version in `package.json`.

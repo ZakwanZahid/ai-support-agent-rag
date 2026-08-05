@@ -103,3 +103,169 @@ docker compose up -d postgres
 
 The first migration creates the multi-tenant application tables, enables PostgreSQL `vector`, and creates an HNSW cosine-similarity index for document chunk embeddings.
 
+## API and Configuration
+
+Required local backend settings:
+
+```env
+FRONTEND_ORIGIN=http://localhost:3000
+JWT_SECRET_KEY=change-me-in-development
+JWT_ALGORITHM=HS256
+ACCESS_TOKEN_EXPIRE_MINUTES=60
+UPLOAD_DIR=storage/uploads
+MAX_UPLOAD_SIZE_MB=10
+AUTO_INGEST_ON_UPLOAD=true
+CHUNK_SIZE=1200
+CHUNK_OVERLAP=200
+OPENAI_API_KEY=
+EMBEDDING_PROVIDER=openai
+EMBEDDING_MODEL=text-embedding-3-small
+EMBEDDING_DIMENSIONS=1536
+INDEX_BATCH_SIZE=50
+CHAT_PROVIDER=openai
+CHAT_MODEL=gpt-4o-mini
+CHAT_TEMPERATURE=0.2
+RAG_TOP_K=5
+RAG_MAX_CONTEXT_CHARS=12000
+```
+
+Available endpoints:
+
+- `POST /api/v1/auth/register`
+- `POST /api/v1/auth/login`
+- `GET /api/v1/auth/me`
+- `POST /api/v1/organizations`
+- `GET /api/v1/organizations`
+- `GET /api/v1/organizations/{organization_id}`
+- `POST /api/v1/organizations/{organization_id}/knowledge-bases`
+- `GET /api/v1/organizations/{organization_id}/knowledge-bases`
+- `GET /api/v1/organizations/{organization_id}/knowledge-bases/{knowledge_base_id}`
+- `POST /api/v1/organizations/{organization_id}/knowledge-bases/{knowledge_base_id}/documents/upload`
+- `GET /api/v1/organizations/{organization_id}/documents`
+- `GET /api/v1/organizations/{organization_id}/documents/{document_id}`
+- `POST /api/v1/organizations/{organization_id}/documents/{document_id}/ingest`
+- `POST /api/v1/organizations/{organization_id}/documents/{document_id}/index`
+- `POST /api/v1/organizations/{organization_id}/knowledge-bases/{knowledge_base_id}/search`
+- `POST /api/v1/organizations/{organization_id}/conversations`
+- `GET /api/v1/organizations/{organization_id}/conversations`
+- `GET /api/v1/organizations/{organization_id}/conversations/{conversation_id}`
+- `POST /api/v1/organizations/{organization_id}/conversations/{conversation_id}/messages`
+
+Register:
+
+```powershell
+curl.exe -X POST http://127.0.0.1:8000/api/v1/auth/register `
+  -H "Content-Type: application/json" `
+  -d '{"email":"user@example.com","password":"strongpassword","full_name":"User Name"}'
+```
+
+Login:
+
+```powershell
+curl.exe -X POST http://127.0.0.1:8000/api/v1/auth/login `
+  -H "Content-Type: application/json" `
+  -d '{"email":"user@example.com","password":"strongpassword"}'
+```
+
+Use the returned access token in protected requests:
+
+```powershell
+curl.exe http://127.0.0.1:8000/api/v1/auth/me `
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
+```
+
+Create a knowledge base:
+
+```powershell
+curl.exe -X POST http://127.0.0.1:8000/api/v1/organizations/ORGANIZATION_ID/knowledge-bases `
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN" `
+  -H "Content-Type: application/json" `
+  -d '{"name":"Product Docs","description":"Product support documents"}'
+```
+
+Upload a document:
+
+```powershell
+curl.exe -X POST http://127.0.0.1:8000/api/v1/organizations/ORGANIZATION_ID/knowledge-bases/KNOWLEDGE_BASE_ID/documents/upload `
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN" `
+  -F "title=Getting Started" `
+  -F "file=@C:\path\to\getting-started.txt;type=text/plain"
+```
+
+Uploads create a `pending` document. Background ingestion changes it to `processing`, then `processed` or `failed`. A later embedding phase will move processed documents to `indexed`. Files are stored under `storage/uploads/{organization_id}/{knowledge_base_id}/`.
+
+Manually schedule ingestion:
+
+```powershell
+curl.exe -X POST "http://127.0.0.1:8000/api/v1/organizations/ORGANIZATION_ID/documents/DOCUMENT_ID/ingest" `
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
+```
+
+Reprocess a completed document and replace its chunks:
+
+```powershell
+curl.exe -X POST "http://127.0.0.1:8000/api/v1/organizations/ORGANIZATION_ID/documents/DOCUMENT_ID/ingest?force=true" `
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
+```
+
+Apply the status-constraint migration before testing ingestion:
+
+```powershell
+cd backend
+.\.venv\Scripts\python.exe -m alembic upgrade head
+```
+
+Set a valid `OPENAI_API_KEY` in `backend/.env`, then index a processed document:
+
+```powershell
+curl.exe -X POST "http://127.0.0.1:8000/api/v1/organizations/ORGANIZATION_ID/documents/DOCUMENT_ID/index" `
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
+```
+
+Search the indexed knowledge base:
+
+```powershell
+curl.exe -X POST "http://127.0.0.1:8000/api/v1/organizations/ORGANIZATION_ID/knowledge-bases/KNOWLEDGE_BASE_ID/search" `
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN" `
+  -H "Content-Type: application/json" `
+  -d '{"query":"What is the refund policy?","top_k":5}'
+```
+
+Create a conversation:
+
+```powershell
+curl.exe -X POST "http://127.0.0.1:8000/api/v1/organizations/ORGANIZATION_ID/conversations" `
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN" `
+  -H "Content-Type: application/json" `
+  -d '{"title":"Refund policy question","knowledge_base_id":"KNOWLEDGE_BASE_ID"}'
+```
+
+Send a grounded RAG question:
+
+```powershell
+curl.exe -X POST "http://127.0.0.1:8000/api/v1/organizations/ORGANIZATION_ID/conversations/CONVERSATION_ID/messages" `
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN" `
+  -H "Content-Type: application/json" `
+  -d '{"question":"What is the refund policy?","knowledge_base_id":"KNOWLEDGE_BASE_ID","top_k":5}'
+```
+
+The response contains the stored user and assistant message IDs, the grounded answer, and application-generated citation metadata:
+
+```json
+{
+  "conversation_id": "...",
+  "user_message_id": "...",
+  "assistant_message_id": "...",
+  "answer": "Customers can request a refund within 14 days of purchase.",
+  "citations": [
+    {
+      "document_id": "...",
+      "document_title": "sample-faq",
+      "chunk_id": "...",
+      "quote": "Customers can request a refund within 14 days of purchase.",
+      "score": 0.89,
+      "chunk_metadata": {}
+    }
+  ]
+}
+```
