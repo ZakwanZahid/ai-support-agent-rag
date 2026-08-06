@@ -47,7 +47,26 @@ def get_indexing_runner() -> IndexingRunner:
 
 
 def get_preparation_runner() -> PreparationRunner:
-    return prepare_document
+    """How the API hands preparation off.
+
+    In production this enqueues onto Redis so the work survives an API restart.
+    Tests override this dependency with an in-process runner, which keeps the
+    suite free of a Redis dependency; the queue's own behaviour is covered
+    separately in test_jobs.py.
+    """
+    return enqueue_preparation_runner
+
+
+def enqueue_preparation_runner(
+    document_id: uuid.UUID,
+    organization_id: uuid.UUID,
+    force: bool = False,
+) -> None:
+    # Imported here so that merely importing the API does not require Redis to
+    # be reachable; only actually enqueueing does.
+    from app.jobs.enqueue import enqueue_preparation
+
+    enqueue_preparation(str(document_id), str(organization_id), force)
 
 
 def get_request_embedding_provider() -> EmbeddingProvider:

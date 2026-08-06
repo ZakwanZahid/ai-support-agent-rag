@@ -1,7 +1,7 @@
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.api.deps import PreparationRunner, get_db, get_preparation_runner, require_role
@@ -28,7 +28,6 @@ owner_or_admin = require_role(["owner", "admin"])
 def prepare_document_for_chat(
     organization_id: uuid.UUID,
     document_id: uuid.UUID,
-    background_tasks: BackgroundTasks,
     db: Annotated[Session, Depends(get_db)],
     _membership: Annotated[OrganizationMember, Depends(owner_or_admin)],
     preparation_runner: Annotated[PreparationRunner, Depends(get_preparation_runner)],
@@ -36,7 +35,9 @@ def prepare_document_for_chat(
 ) -> PreparationScheduledResponse:
     """Extract and index a document in one step.
 
-    Clients poll the document until its status is `indexed` or `failed`.
+    The work is handed to a queue rather than run in this process, so it
+    survives an API restart. Clients poll the document until its status is
+    `indexed` or `failed`.
     """
     try:
         document = PreparationService(db).start(
@@ -65,12 +66,7 @@ def prepare_document_for_chat(
             detail="Document is already ready; use force=true to prepare it again",
         )
 
-    background_tasks.add_task(
-        preparation_runner,
-        document_id,
-        organization_id,
-        force,
-    )
+    preparation_runner(document_id, organization_id, force)
     return PreparationScheduledResponse(
         document_id=document_id,
         status=document.status,

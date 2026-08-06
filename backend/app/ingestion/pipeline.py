@@ -26,7 +26,14 @@ def ingest_document(
     organization_id: uuid.UUID,
     force: bool = False,
     session_factory: Callable[[], Session] = SessionLocal,
+    raise_on_error: bool = False,
 ) -> None:
+    """Extract text from a stored file and write its chunks.
+
+    `raise_on_error` re-raises after recording the failure on the document.
+    The queue needs the exception to decide whether an attempt is worth
+    retrying; callers that only care about the recorded status leave it off.
+    """
     db = session_factory()
     documents = DocumentRepository(db)
     chunks = DocumentChunkRepository(db)
@@ -87,6 +94,8 @@ def ingest_document(
             failed_document.status = "failed"
             failed_document.error_message = str(exc)[:4000]
             db.commit()
+        if raise_on_error:
+            raise
     finally:
         db.close()
 

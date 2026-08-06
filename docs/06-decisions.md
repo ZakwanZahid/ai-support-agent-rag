@@ -205,3 +205,27 @@ Knowledge bases return `document_count` and `ready_document_count`; conversation
 Status: Accepted
 
 `AUTO_INGEST_ON_UPLOAD` now defaults to false. With it enabled, upload left the document mid-flight in `processing`, so a `prepare` call moments later conflicted with work already running, and the document stalled after extraction with nothing to index it. Preparation is an explicit action that owns the whole lifecycle, which removes the race and matches the single user-facing action described in ADR-025.
+
+## ADR-033: Redis and RQ for Durable Preparation
+
+Status: Accepted
+
+Document preparation moves from FastAPI `BackgroundTasks` (ADR-006) to an RQ job on Redis. The problem with the previous approach was not throughput but survival: a `BackgroundTask` runs inside the API process, so any restart during preparation loses the work and leaves the document in `processing` with nothing left to finish it. RQ was chosen over Celery because the workload is a handful of small job types with no chains, groups, or routing, and RQ's model is small enough to read in an afternoon; Celery's feature set would be configuration to maintain rather than capability used. The single-phase `ingest` and `index` endpoints remain in-process: they are operational tools, not part of the user-facing path.
+
+## ADR-034: Idempotency by Claim and by Effect
+
+Status: Accepted
+
+A preparation job must be safe to run more than once, because a queue that guarantees at-least-once delivery will eventually deliver twice. Safety comes from two independent properties. *Effect idempotency*: extraction deletes a document's chunks before writing new ones, and indexing only embeds chunks whose vector is null, so a repeated run converges on the same state without repeating the paid work. *Claim idempotency*: a job takes ownership through a single conditional UPDATE, which the database resolves, so two workers cannot both believe they are clear to proceed. Reading the status and then writing it would leave a window between the two statements where both workers see an unclaimed document. A claim is granted when the document is unowned, when the previous owner has gone quiet past the stale threshold, or when the caller already owns it, which is what lets a retry continue its own work.
+
+## ADR-035: Retry Only What Retrying Could Fix
+
+Status: Accepted
+
+Failures are classified before a retry is scheduled. Bad input — a corrupt file, an unsupported type, a document that yields no text — fails identically every time, so retrying spends time and embedding credit to reach the same answer; these are recorded as failed immediately. Environment failures such as provider timeouts and 5xx responses are retried with increasing backoff, capped at a configured number of attempts, after which the document is marked failed with the attempt count in its message. Unrecognized exceptions are treated as retryable on the grounds that a needless retry is cheaper than a document stuck failed because of a transient error nobody anticipated. The queue owns *when* a retry happens; the job owns *whether* one is deserved.
+
+## ADR-036: A Sweep for Work Nobody Owns
+
+Status: Accepted
+
+Retries only help when a job fails. A worker killed between claiming a document and finishing it fails nothing: the queue has no record to retry, and the API will not start another job because the status already reads `processing`. Nothing in the system notices, and the user watches a progress timeline that will never move. A periodic sweep finds documents that have been processing longer than any real preparation should take and either requeues them or fails them, depending on attempts already spent. It compares against the claim timestamp where one exists and the row's `updated_at` where one does not, because a job lost before any worker claimed it leaves no claim behind. The threshold is deliberately generous: failing a document that is merely slow is worse than recovering it a few minutes late.
