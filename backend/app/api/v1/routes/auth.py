@@ -3,7 +3,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user, get_db
+from app.api.deps import enforce_auth_rate_limit, get_current_user, get_db
 from app.models.user import User
 from app.schemas.auth import TokenResponse, UserLogin, UserRegister, UserResponse
 from app.services.auth_service import (
@@ -16,7 +16,12 @@ from app.services.auth_service import (
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
-@router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/register",
+    response_model=UserResponse,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(enforce_auth_rate_limit)],
+)
 def register(data: UserRegister, db: Annotated[Session, Depends(get_db)]) -> User:
     try:
         return AuthService(db).register(data)
@@ -27,7 +32,11 @@ def register(data: UserRegister, db: Annotated[Session, Depends(get_db)]) -> Use
         )
 
 
-@router.post("/login", response_model=TokenResponse)
+@router.post(
+    "/login",
+    response_model=TokenResponse,
+    dependencies=[Depends(enforce_auth_rate_limit)],
+)
 def login(data: UserLogin, db: Annotated[Session, Depends(get_db)]) -> TokenResponse:
     try:
         token = AuthService(db).login(data)

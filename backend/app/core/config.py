@@ -65,6 +65,34 @@ class Settings(BaseSettings):
         alias="PREPARATION_JOB_TIMEOUT_SECONDS",
         gt=0,
     )
+    # Rate limiting. Disabling it is for tests and for local work where a
+    # reload loop would otherwise lock you out of your own login form.
+    rate_limit_enabled: bool = Field(default=True, alias="RATE_LIMIT_ENABLED")
+    # Auth is limited per client address: enough headroom for someone
+    # mistyping a password, far below what credential stuffing needs.
+    rate_limit_auth_max_requests: int = Field(
+        default=10,
+        alias="RATE_LIMIT_AUTH_MAX_REQUESTS",
+        gt=0,
+    )
+    rate_limit_auth_window_seconds: int = Field(
+        default=60,
+        alias="RATE_LIMIT_AUTH_WINDOW_SECONDS",
+        gt=0,
+    )
+    # Chat is limited per organization, because the cost of a message is an
+    # embedding call plus a completion and the bill is per organization, not
+    # per user or per address.
+    rate_limit_chat_max_requests: int = Field(
+        default=20,
+        alias="RATE_LIMIT_CHAT_MAX_REQUESTS",
+        gt=0,
+    )
+    rate_limit_chat_window_seconds: int = Field(
+        default=60,
+        alias="RATE_LIMIT_CHAT_WINDOW_SECONDS",
+        gt=0,
+    )
     openai_api_key: str | None = Field(default=None, alias="OPENAI_API_KEY")
     embedding_provider: str = Field(default="openai", alias="EMBEDDING_PROVIDER")
     embedding_model: str = Field(

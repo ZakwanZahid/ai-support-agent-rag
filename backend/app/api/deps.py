@@ -7,6 +7,13 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jwt import InvalidTokenError
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
+from app.core.rate_limit import (
+    RateLimitBackend,
+    RateLimitRule,
+    RedisRateLimitBackend,
+    build_key,
+)
 from app.core.security import decode_access_token
 from app.db.session import get_db as session_get_db
 from app.documents.preparation import prepare_document
@@ -67,6 +74,63 @@ def enqueue_preparation_runner(
     from app.jobs.enqueue import enqueue_preparation
 
     enqueue_preparation(str(document_id), str(organization_id), force)
+
+
+def get_rate_limit_backend() -> RateLimitBackend:
+    """The shared request counter.
+
+    Redis in production, so all API processes spend one budget. Tests override
+    this with the in-memory backend, which keeps the suite free of a Redis
+    dependency.
+    """
+    # Imported lazily for the same reason as the queue: importing the API must
+    # not require Redis to be reachable.
+    from app.jobs.queue import get_redis
+
+    return RedisRateLimitBackend(get_redis)
+
+
+def _client_identity(request: Request) -> str:
+    """Who to charge an unauthenticated request to.
+
+    `request.client.host` is the immediate peer. Behind a load balancer that
+    is the balancer, not the caller, so a real deployment has to configure
+    proxy header trust before this key means anything. Documented rather than
+    guessed at: trusting `X-Forwarded-For` without knowing the hop count lets
+    a caller forge their own identity and opt out of the limit entirely.
+    """
+    client = request.client
+    return client.host if client is not None else "unknown"
+
+
+def _enforce(backend: RateLimitBackend, rule: RateLimitRule, identity: str) -> None:
+    if not settings.rate_limit_enabled:
+        return
+
+    decision = backend.hit(build_key(rule, identity), rule)
+    if decision.allowed:
+        return
+
+    raise HTTPException(
+        status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+        detail="Too many requests. Try again shortly.",
+        headers={"Retry-After": str(decision.retry_after)},
+    )
+
+
+def enforce_auth_rate_limit(
+    request: Request,
+    backend: Annotated[RateLimitBackend, Depends(get_rate_limit_backend)],
+) -> None:
+    _enforce(
+        backend,
+        RateLimitRule(
+            name="auth",
+            max_requests=settings.rate_limit_auth_max_requests,
+            window_seconds=settings.rate_limit_auth_window_seconds,
+        ),
+        _client_identity(request),
+    )
 
 
 def get_request_embedding_provider() -> EmbeddingProvider:
@@ -130,6 +194,21 @@ def get_organization_id(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="Invalid organization ID",
         )
+
+
+def enforce_chat_rate_limit(
+    organization_id: Annotated[uuid.UUID, Depends(get_organization_id)],
+    backend: Annotated[RateLimitBackend, Depends(get_rate_limit_backend)],
+) -> None:
+    _enforce(
+        backend,
+        RateLimitRule(
+            name="chat",
+            max_requests=settings.rate_limit_chat_max_requests,
+            window_seconds=settings.rate_limit_chat_window_seconds,
+        ),
+        str(organization_id),
+    )
 
 
 def require_organization_member(
