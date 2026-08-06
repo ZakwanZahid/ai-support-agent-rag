@@ -68,7 +68,7 @@ python -m uvicorn app.main:app --reload
 
 **Option C: Using Docker Compose**
 ```powershell
-docker compose up backend
+docker compose up -d
 ```
 
 The server will start on `http://localhost:8000`
@@ -98,7 +98,7 @@ Expected response:
 Start the local pgvector database from the repository root before migrating:
 
 ```powershell
-docker compose up -d postgres
+docker compose up -d db
 ```
 
 The first migration creates the multi-tenant application tables, enables PostgreSQL `vector`, and creates an HNSW cosine-similarity index for document chunk embeddings.
