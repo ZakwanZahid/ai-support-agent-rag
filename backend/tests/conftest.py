@@ -84,6 +84,18 @@ test_tables = [
 
 
 @pytest.fixture
+def session_factory():
+    """The test session factory, for code that opens its own sessions.
+
+    Exposed as a fixture rather than imported directly: pytest loads this file
+    as `conftest`, so `from tests.conftest import ...` would load it a second
+    time under a different module name, producing a second engine and a second
+    in-memory database that has none of the tables.
+    """
+    return TestingSessionLocal
+
+
+@pytest.fixture
 def db() -> Session:
     Base.metadata.create_all(bind=engine, tables=test_tables)
     session = TestingSessionLocal()
@@ -136,27 +148,35 @@ def client(db: Session) -> TestClient:
     # The trailing session_factory is ignored: these always run against the
     # in-memory test session. It exists so prepare_document can call them with
     # the same signature it uses for the real runners.
-    def run_ingestion_for_test(document_id, organization_id, force=False, _factory=None):
+    def run_ingestion_for_test(
+        document_id, organization_id, force=False, _factory=None, raise_on_error=False
+    ):
         ingest_document(
             document_id,
             organization_id,
             force,
             session_factory=TestingSessionLocal,
+            raise_on_error=raise_on_error,
         )
 
     def get_fake_embedding_provider():
         return FakeEmbeddingProvider()
 
-    def run_indexing_for_test(document_id, organization_id, force=False, _factory=None):
+    def run_indexing_for_test(
+        document_id, organization_id, force=False, _factory=None, raise_on_error=False
+    ):
         index_document(
             document_id,
             organization_id,
             force,
             session_factory=TestingSessionLocal,
             provider_factory=get_fake_embedding_provider,
+            raise_on_error=raise_on_error,
         )
 
-    def run_preparation_for_test(document_id, organization_id, force=False):
+    def run_preparation_for_test(
+        document_id, organization_id, force=False, raise_on_error=False
+    ):
         prepare_document(
             document_id,
             organization_id,
@@ -164,6 +184,7 @@ def client(db: Session) -> TestClient:
             session_factory=TestingSessionLocal,
             ingest=run_ingestion_for_test,
             index=run_indexing_for_test,
+            raise_on_error=raise_on_error,
         )
 
     app.dependency_overrides[get_db] = override_get_db

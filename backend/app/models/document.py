@@ -36,6 +36,13 @@ class Document(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     status: Mapped[str] = mapped_column(String(20), index=True, nullable=False, default="pending", server_default="pending")
     error_message: Mapped[str | None] = mapped_column(Text)
 
+    # Preparation job tracking. `preparation_started_at` is what distinguishes a
+    # document that is genuinely being worked on from one whose worker died, so
+    # a sweep can recover the second without disturbing the first.
+    preparation_job_id: Mapped[str | None] = mapped_column(String(64))
+    preparation_started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    preparation_attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
+
     organization: Mapped["Organization"] = relationship(back_populates="documents")
     knowledge_base: Mapped["KnowledgeBase"] = relationship(back_populates="documents")
     chunks: Mapped[list["DocumentChunk"]] = relationship(back_populates="document", cascade="all, delete-orphan")

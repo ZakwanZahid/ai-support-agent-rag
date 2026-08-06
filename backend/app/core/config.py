@@ -31,6 +31,40 @@ class Settings(BaseSettings):
     auto_ingest_on_upload: bool = Field(default=False, alias="AUTO_INGEST_ON_UPLOAD")
     chunk_size: int = Field(default=1200, alias="CHUNK_SIZE", gt=0)
     chunk_overlap: int = Field(default=200, alias="CHUNK_OVERLAP", ge=0)
+    redis_url: str = Field(default="redis://localhost:6379/0", alias="REDIS_URL")
+    preparation_queue_name: str = Field(
+        default="preparation",
+        alias="PREPARATION_QUEUE_NAME",
+    )
+    # A preparation job holds no locks and is safe to re-run, so the ceiling is
+    # about not burning embedding spend on a provider that is genuinely down.
+    preparation_max_attempts: int = Field(
+        default=3,
+        alias="PREPARATION_MAX_ATTEMPTS",
+        ge=1,
+        le=10,
+    )
+    # Backoff between attempts, in seconds. Long enough for a brief provider
+    # blip to clear without making a stuck document wait many minutes.
+    preparation_retry_delays: str = Field(
+        default="10,60,180",
+        alias="PREPARATION_RETRY_DELAYS",
+    )
+    # A job still marked processing after this long has lost its worker. The
+    # value must exceed the slowest realistic preparation, or the sweep will
+    # fail documents that are merely slow.
+    preparation_stale_after_seconds: int = Field(
+        default=900,
+        alias="PREPARATION_STALE_AFTER_SECONDS",
+        gt=0,
+    )
+    # Hard ceiling on a single job. Without it a hung provider call keeps a
+    # worker occupied indefinitely.
+    preparation_job_timeout_seconds: int = Field(
+        default=600,
+        alias="PREPARATION_JOB_TIMEOUT_SECONDS",
+        gt=0,
+    )
     openai_api_key: str | None = Field(default=None, alias="OPENAI_API_KEY")
     embedding_provider: str = Field(default="openai", alias="EMBEDDING_PROVIDER")
     embedding_model: str = Field(
@@ -53,6 +87,27 @@ class Settings(BaseSettings):
         alias="RAG_MAX_CONTEXT_CHARS",
         gt=0,
     )
+
+    @property
+    def preparation_retry_intervals(self) -> list[int]:
+        """Backoff delays parsed from the comma-separated setting.
+
+        Padded or trimmed to one interval per retry, so the policy stays
+        coherent if the two settings are configured inconsistently.
+        """
+        retries = self.preparation_max_attempts - 1
+        if retries <= 0:
+            return []
+
+        parsed = [
+            int(part.strip())
+            for part in self.preparation_retry_delays.split(",")
+            if part.strip()
+        ] or [10]
+
+        if len(parsed) >= retries:
+            return parsed[:retries]
+        return parsed + [parsed[-1]] * (retries - len(parsed))
 
     @model_validator(mode="after")
     def validate_chunk_settings(self) -> "Settings":

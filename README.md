@@ -5,7 +5,7 @@
 A multi-tenant RAG application: FastAPI and Postgres/pgvector behind a Next.js product surface that never asks the user to understand retrieval, embeddings, or indexing.
 
 [![CI](https://github.com/ZakwanZahid/ai-support-agent-rag/actions/workflows/ci.yml/badge.svg)](https://github.com/ZakwanZahid/ai-support-agent-rag/actions/workflows/ci.yml)
-![Backend tests](https://img.shields.io/badge/backend-49%20tests-brightgreen)
+![Backend tests](https://img.shields.io/badge/backend-69%20tests-brightgreen)
 ![Frontend tests](https://img.shields.io/badge/frontend-41%20tests-brightgreen)
 ![E2E](https://img.shields.io/badge/e2e-1%20flow%20(manual)-blue)
 
@@ -47,7 +47,12 @@ flowchart TB
         Routes["Routes<br/>auth · workspaces · documents · chat"]
         Deps["Dependencies<br/>JWT decode · membership · role checks"]
         Services["Services<br/>documents · preparation · RAG"]
-        Jobs["BackgroundTasks<br/>extract → index"]
+    end
+
+    subgraph queue["Worker"]
+        RQ{{"RQ queue<br/>(Redis)"}}
+        Job["Preparation job<br/>claim → extract → index"]
+        Sweep["Stale sweep<br/>recovers abandoned work"]
     end
 
     subgraph data["Storage"]
@@ -64,9 +69,12 @@ flowchart TB
     Routes --> Deps --> Services
     Services --> PG
     Services --> Disk
-    Services -.->|"schedules"| Jobs
-    Jobs --> PG
-    Jobs -->|"embed chunks"| Embed
+    Services -.->|"enqueue"| RQ
+    RQ --> Job
+    Job -->|"claim, then write chunks"| PG
+    Job -->|"embed chunks"| Embed
+    Sweep -.->|"requeue abandoned"| RQ
+    Sweep --> PG
     Services -->|"answer from retrieved context"| Chat
     UI -.->|"polls document status"| Routes
 ```
@@ -83,7 +91,8 @@ sequenceDiagram
     actor User
     participant UI as Browser
     participant API as FastAPI
-    participant Job as Background task
+    participant Q as RQ queue
+    participant W as Worker
     participant DB as Postgres
     participant AI as OpenAI
 
@@ -92,14 +101,17 @@ sequenceDiagram
     API->>DB: store file, status = pending
     UI->>API: POST /documents/{id}/prepare
     API->>DB: status = processing
+    API->>Q: enqueue job
     API-->>UI: 202 Accepted
-    API->>Job: schedule
 
-    Job->>DB: extract text, write chunks
-    Note over Job,DB: status = processed
-    Job->>AI: embed chunks
-    AI-->>Job: vectors
-    Job->>DB: store embeddings, status = indexed
+    Q->>W: deliver job
+    W->>DB: claim (conditional UPDATE)
+    Note over W,DB: refuses if another worker holds it
+    W->>DB: extract text, write chunks
+    Note over W,DB: status = processed
+    W->>AI: embed chunks without vectors
+    AI-->>W: vectors
+    W->>DB: store embeddings, status = indexed
 
     loop until settled
         UI->>API: GET /documents/{id}
@@ -108,6 +120,8 @@ sequenceDiagram
 ```
 
 Chaining happens server-side, deliberately. Orchestrating it from the browser means the sequence breaks if the tab closes between the two calls. If extraction yields no chunks, the job stops rather than indexing nothing, and the document reports `Failed` with the reason.
+
+The job is safe to run twice, which matters because a queue that delivers at-least-once eventually delivers twice. Extraction replaces a document's chunks rather than appending, and indexing only embeds chunks whose vector is still null — so a repeat run converges on the same state without paying for the same embeddings again. A conditional UPDATE decides ownership, so two workers cannot both proceed. See ADR-034.
 
 Answers are assembled the same way every time: embed the question, retrieve the nearest chunks scoped to one knowledge space, build a context block, and ask the model to answer only from it. The chunks that fed the answer are stored alongside the message, which is what the UI shows as **Sources**.
 
@@ -120,7 +134,8 @@ Answers are assembled the same way every time: embed the question, retrieve the 
 | API | FastAPI, SQLAlchemy 2.0, Pydantic v2, Alembic |
 | Database | PostgreSQL + pgvector |
 | Models | OpenAI `text-embedding-3-small`, `gpt-4o-mini`, behind provider interfaces |
-| Tests | pytest (49) · Vitest (41) · Playwright (1 end-to-end flow) |
+| Queue | Redis + RQ for durable document preparation |
+| Tests | pytest (69) · Vitest (41) · Playwright (1 end-to-end flow) |
 
 ## Key engineering decisions
 
@@ -150,8 +165,8 @@ Stated rather than hidden. The full list with severities is in [docs/10-frontend
 - Tenant isolation is enforced in application queries, not by Postgres RLS
 
 **Reliability**
-- Background tasks aren't durable; a restart mid-preparation strands a document in `processing`
-- No retry or backoff when the embedding provider fails
+- One queue with no priorities, so a bulk upload delays everyone else
+- The stale sweep is uncoordinated; two running at once would both try to recover the same documents
 
 **Scale and product**
 - No pagination anywhere; document search and filtering are client-side
@@ -170,7 +185,7 @@ The strategy is deliberate rather than uniform: unit-test the modules whose corr
 
 | Suite | Count | What it covers |
 | --- | --- | --- |
-| pytest | 49 | Auth, tenancy, upload, ingestion, indexing, search, RAG chat, preparation, aggregates, workspace settings |
+| pytest | 69 | Auth, tenancy, upload, ingestion, indexing, search, RAG chat, preparation, aggregates, workspace settings, queue claims and sweep |
 | Vitest | 41 | `terminology.ts` (100%), `api/client.ts` (91%), `StatusBadge` (100%) |
 | Playwright | 1 flow | Signup → onboarding → upload → prepare → ask → sourced answer |
 
@@ -188,7 +203,7 @@ cd frontend && npm run test:e2e   # end-to-end (needs backend + OpenAI key)
 
 ## What I'd build next
 
-In priority order: durable background jobs (Redis + RQ) so preparation survives a restart; rate limiting and Postgres RLS as defense-in-depth; deletion and pagination; and an evaluation harness before any further retrieval changes, so improvements can be measured rather than assumed.
+In priority order: rate limiting and Postgres RLS as defense-in-depth; deletion and pagination; and an evaluation harness before any further retrieval changes, so improvements can be measured rather than assumed.
 
 Agent orchestration (tool-calling, LangGraph) was scoped out deliberately — the retrieval and evaluation work demonstrates the same system-design thinking with less surface area to maintain.
 

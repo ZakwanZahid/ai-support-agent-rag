@@ -39,6 +39,7 @@ def prepare_document(
     session_factory: Callable[[], Session] = SessionLocal,
     ingest: Callable[..., None] = ingest_document,
     index: Callable[..., None] = index_document,
+    raise_on_error: bool = False,
 ) -> None:
     """Take a document from uploaded to searchable in one background task.
 
@@ -55,7 +56,13 @@ def prepare_document(
     # Skip re-chunking a document that has already been extracted, unless the
     # caller is explicitly replacing its content.
     if force or status not in EXTRACTED_STATUSES:
-        ingest(document_id, organization_id, force, session_factory)
+        ingest(
+            document_id,
+            organization_id,
+            force,
+            session_factory,
+            raise_on_error=raise_on_error,
+        )
 
     status = _current_status(document_id, organization_id, session_factory)
     if status not in EXTRACTED_STATUSES:
@@ -70,4 +77,10 @@ def prepare_document(
         )
         return
 
-    index(document_id, organization_id, force, session_factory)
+    index(
+        document_id,
+        organization_id,
+        force,
+        session_factory,
+        raise_on_error=raise_on_error,
+    )

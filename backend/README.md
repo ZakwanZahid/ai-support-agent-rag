@@ -269,3 +269,55 @@ The response contains the stored user and assistant message IDs, the grounded an
   ]
 }
 ```
+
+## Background jobs
+
+Document preparation runs on an RQ queue backed by Redis, not in the API
+process. Start all three pieces:
+
+```bash
+docker compose up -d          # Postgres and Redis
+uvicorn app.main:app --reload --port 8000
+python worker.py              # in a second terminal
+```
+
+Without a worker running, prepare requests are accepted and queued but nothing
+processes them; documents stay at "Uploaded". `GET /health` reports
+`queue: unavailable` when Redis cannot be reached.
+
+### Recovering abandoned work
+
+A worker killed mid-job leaves its document in `processing` with no job left to
+finish it. Retries do not help — nothing failed, the work simply stopped
+existing. Run the sweep periodically to recover those:
+
+```bash
+python sweep.py
+```
+
+It requeues documents that have been processing longer than
+`PREPARATION_STALE_AFTER_SECONDS` (default 900), or fails them once they have
+used their attempt budget. In production this belongs in a scheduled task.
+
+### Retry policy
+
+| Setting | Default | Meaning |
+| --- | --- | --- |
+| `PREPARATION_MAX_ATTEMPTS` | `3` | Total attempts before a document is failed |
+| `PREPARATION_RETRY_DELAYS` | `10,60,180` | Backoff in seconds between attempts |
+| `PREPARATION_STALE_AFTER_SECONDS` | `900` | How long before a claim is treated as abandoned |
+| `PREPARATION_JOB_TIMEOUT_SECONDS` | `600` | Hard ceiling on a single job |
+
+Not every failure is retried. Bad input — a corrupt file, an unsupported type,
+a document that yields no text — fails the same way every time, so it is
+recorded immediately rather than retried at the cost of time and embedding
+credit. Provider timeouts and 5xx responses are retried with backoff. See
+ADR-035.
+
+### A note on Windows
+
+RQ's default worker forks a child process per job and enforces timeouts with
+`SIGALRM`; Windows has neither. `worker.py` detects this and runs `SimpleWorker`
+with a thread-based timeout instead. Jobs then run inside the worker process, so
+a job that hard-crashes the interpreter takes the worker with it. Deployment
+targets Linux, where the forking worker is used.

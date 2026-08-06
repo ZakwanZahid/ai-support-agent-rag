@@ -185,8 +185,8 @@ Severity: **B** blocks deployment · **S** security · **R** reliability ·
 | 6 | S | No rate limiting: login is brute-forceable and chat spend is uncapped | 13 | Open |
 | 7 | S | No email verification or password reset | — | Won't do for now |
 | 8 | S | Tenant isolation enforced in application queries, not Postgres RLS (ADR-001) | 13 | Open |
-| 9 | R | `BackgroundTasks` are not durable; a restart strands a document in `processing` | 12 | Open |
-| 10 | R | No retry or backoff when the embedding provider fails | 12 | Open |
+| 9 | R | `BackgroundTasks` are not durable; a restart strands a document in `processing` | 12 | Closed |
+| 10 | R | No retry or backoff when the embedding provider fails | 12 | Closed |
 | 11 | R | Status is polled every 1.5s and gives up after 2 minutes, rather than pushed | — | Deferred |
 | 12 | C | No pagination on documents, knowledge spaces, threads, or messages | 14 | Open |
 | 13 | C | Document search and filtering happen client-side | 14 | Open |

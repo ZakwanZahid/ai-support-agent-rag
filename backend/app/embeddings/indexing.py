@@ -25,7 +25,15 @@ def index_document(
     force: bool = False,
     session_factory: Callable[[], Session] = SessionLocal,
     provider_factory: Callable[[], EmbeddingProvider] = get_embedding_provider,
+    raise_on_error: bool = False,
 ) -> None:
+    """Embed a document's chunks and mark it indexed.
+
+    Only chunks without an embedding are sent to the provider unless `force`
+    is set, which is what makes a repeated run cheap rather than a second full
+    charge. `raise_on_error` re-raises after recording the failure, so the
+    queue can decide whether the attempt is worth retrying.
+    """
     db = session_factory()
     documents = DocumentRepository(db)
     chunks = DocumentChunkRepository(db)
@@ -104,5 +112,7 @@ def index_document(
             failed_document.status = "failed"
             failed_document.error_message = str(exc)[:4000]
             db.commit()
+        if raise_on_error:
+            raise
     finally:
         db.close()
