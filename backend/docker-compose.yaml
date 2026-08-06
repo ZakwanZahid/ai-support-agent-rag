@@ -1,15 +1,46 @@
+# Local infrastructure for the API: Postgres with pgvector, and Redis for the
+# job queue. This is the only compose file in the repository — both services
+# are backend dependencies, and a second file at the repository root used to
+# describe a different Postgres on a different port, so running compose from
+# the wrong directory produced an empty database the application never used.
+#
+#   cd backend && docker compose up -d
 services:
   db:
     image: pgvector/pgvector:pg17
     container_name: rag_support_agent
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: rag_support_agent
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-rag_support_agent}
+    # 5433 on the host, to avoid colliding with a Postgres already installed
+    # locally. DATABASE_URL must use this port, not 5432.
     ports:
       - "5433:5432"
     volumes:
       - rag_support_agent_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: rag_support_agent_redis
+    # Append-only persistence so queued preparation jobs survive a restart of
+    # this container. Without it a restart silently drops anything waiting.
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - rag_support_agent_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
 volumes:
   rag_support_agent_pgdata:
+  rag_support_agent_redis_data:

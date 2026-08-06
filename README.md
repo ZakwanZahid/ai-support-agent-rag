@@ -213,11 +213,17 @@ Agent orchestration (tool-calling, LangGraph) was scoped out deliberately — th
 
 Requires Docker, Python 3.12+, Node 22.13+, and an OpenAI API key.
 
-**1. Database**
+**1. Infrastructure**
+
+Postgres (with pgvector) and Redis:
 
 ```bash
+cd backend
 docker compose up -d
 ```
+
+Postgres listens on **5433**, not the default 5432, so it does not collide with
+a local install. `DATABASE_URL` must match.
 
 **2. Backend**
 
