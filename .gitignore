@@ -34,3 +34,7 @@ Thumbs.db
 
 # Local agent tooling
 .claude/
+
+# Embedding cache for the retrieval eval. Machine-local and regenerable;
+# a couple of megabytes of float vectors is not repository content.
+backend/eval/.cache/
