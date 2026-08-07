@@ -18,6 +18,22 @@ class Settings(BaseSettings):
         default="postgresql+psycopg://postgres:postgres@localhost:5432/ai_support_agent_rag",
         alias="DATABASE_URL",
     )
+    # Migrations connect as the table owner; the application does not. Row-level
+    # security is bypassed outright by a superuser and by a table's owner, so an
+    # application connecting as `postgres` would pass through every policy. Left
+    # unset, migrations fall back to DATABASE_URL — convenient, and fine while
+    # DATABASE_URL still points at the owner, which is the pre-RLS state.
+    migration_database_url: str | None = Field(
+        default=None,
+        alias="MIGRATION_DATABASE_URL",
+    )
+    # The non-owning login role the application uses, created by the RLS
+    # migration. DATABASE_URL should name this role, not the owner.
+    app_db_role: str = Field(default="supportmind_app", alias="APP_DB_ROLE")
+    app_db_password: str = Field(
+        default="supportmind_app",
+        alias="APP_DB_PASSWORD",
+    )
     jwt_secret_key: str = Field(default="change-me-in-development", alias="JWT_SECRET_KEY")
     jwt_algorithm: str = Field(default="HS256", alias="JWT_ALGORITHM")
     access_token_expire_minutes: int = Field(default=60, alias="ACCESS_TOKEN_EXPIRE_MINUTES", gt=0)

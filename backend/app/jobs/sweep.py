@@ -1,4 +1,5 @@
 import logging
+import uuid
 from collections.abc import Callable
 from datetime import datetime, timedelta, timezone
 
@@ -7,14 +8,48 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.db.session import SessionLocal
+from app.db.tenancy import organization_scope
 from app.models.document import Document
+from app.models.organization import Organization
 
 
 logger = logging.getLogger(__name__)
 
 
+def _organization_ids(session_factory: Callable[[], Session]) -> list[str]:
+    db = session_factory()
+    try:
+        return [str(row) for row in db.scalars(select(Organization.id)).all()]
+    finally:
+        db.close()
+
+
 def sweep_stale_preparations(
     session_factory: Callable[[], Session] = SessionLocal,
+    requeue: Callable[[str, str, bool], object] | None = None,
+) -> list[str]:
+    """Recover abandoned preparations, one organization at a time.
+
+    The sweep is inherently cross-tenant — it is looking for stranded work
+    wherever it is — but row-level security admits no query without an
+    organization in scope. Rather than give the sweep a way around the
+    policies, it walks the organizations and runs the same scoped query inside
+    each one. That costs a query per organization, on a table that stays small,
+    and it keeps the invariant worth having: nothing in this system reads
+    tenant data outside a tenant scope.
+    """
+    acted_on: list[str] = []
+    for organization_id in _organization_ids(session_factory):
+        with organization_scope(organization_id):
+            acted_on.extend(
+                _sweep_organization(session_factory, organization_id, requeue)
+            )
+    return acted_on
+
+
+def _sweep_organization(
+    session_factory: Callable[[], Session],
+    organization_id: str,
     requeue: Callable[[str, str, bool], object] | None = None,
 ) -> list[str]:
     """Recover documents whose worker died mid-preparation.
@@ -57,6 +92,11 @@ def sweep_stale_preparations(
         )
         stale = db.scalars(
             select(Document).where(
+                # The organization filter is the application's own; the policy
+                # would enforce it too, but the filter is what makes this
+                # correct on any backend, and RLS is the backstop rather than
+                # the mechanism.
+                Document.organization_id == uuid.UUID(organization_id),
                 Document.status == "processing",
                 reference < cutoff,
             )

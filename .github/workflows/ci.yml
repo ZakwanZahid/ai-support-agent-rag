@@ -17,6 +17,24 @@ jobs:
     defaults:
       run:
         working-directory: backend
+    services:
+      # Only the row-level security tests need this. They cannot run on the
+      # SQLite the rest of the suite uses, because SQLite has no policies to
+      # evaluate — without a real Postgres those tests skip, and tenant
+      # isolation would be the one security control nothing checks.
+      postgres:
+        image: pgvector/pgvector:pg17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: rls_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     steps:
       - uses: actions/checkout@v4
 
@@ -30,9 +48,16 @@ jobs:
         run: pip install -r requirements.txt
 
       - name: Run tests
-        # The suite runs against in-memory SQLite with fake embedding and chat
-        # providers, so it needs no database service and makes no API calls.
+        # Most of the suite runs against in-memory SQLite with fake embedding
+        # and chat providers, so it makes no API calls. The Postgres URL is
+        # what un-skips the row-level security tests.
         run: pytest -q
+        env:
+          RLS_TEST_DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/rls_test
+          # Those tests skip when they cannot reach Postgres, which would
+          # leave this job green while proving nothing. In CI a skip is a
+          # failure.
+          REQUIRE_RLS_TESTS: "1"
 
   frontend:
     name: Frontend checks
