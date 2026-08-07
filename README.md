@@ -5,7 +5,7 @@
 A multi-tenant RAG application: FastAPI and Postgres/pgvector behind a Next.js product surface that never asks the user to understand retrieval, embeddings, or indexing.
 
 [![CI](https://github.com/ZakwanZahid/ai-support-agent-rag/actions/workflows/ci.yml/badge.svg)](https://github.com/ZakwanZahid/ai-support-agent-rag/actions/workflows/ci.yml)
-![Backend tests](https://img.shields.io/badge/backend-69%20tests-brightgreen)
+![Backend tests](https://img.shields.io/badge/backend-89%20tests-brightgreen)
 ![Frontend tests](https://img.shields.io/badge/frontend-41%20tests-brightgreen)
 ![E2E](https://img.shields.io/badge/e2e-1%20flow%20(manual)-blue)
 
@@ -135,7 +135,7 @@ Answers are assembled the same way every time: embed the question, retrieve the 
 | Database | PostgreSQL + pgvector |
 | Models | OpenAI `text-embedding-3-small`, `gpt-4o-mini`, behind provider interfaces |
 | Queue | Redis + RQ for durable document preparation |
-| Tests | pytest (69) · Vitest (41) · Playwright (1 end-to-end flow) |
+| Tests | pytest (89) · Vitest (41) · Playwright (1 end-to-end flow) |
 
 ## Key engineering decisions
 
@@ -146,6 +146,8 @@ Answers are assembled the same way every time: embed the question, retrieve the 
 **Aggregate counts, not N+1.** Knowledge bases return `document_count`/`ready_document_count`; conversations return `message_count`/`last_message_preview`. Grouped and correlated subqueries, so a list is one round trip regardless of length — instead of the client fetching every child row to count it. See ADR-031.
 
 **Tenant scoping is a dependency, not a convention.** `require_organization_member` and `require_role` run before any service. A missing workspace and a workspace you don't belong to both return `404`, so membership isn't discoverable by probing.
+
+**And tenant isolation doesn't depend on that alone.** Postgres row-level security scopes every tenant table to the requesting organization, so a query that forgets its filter returns nothing rather than someone else's rows. The application connects as a role that owns nothing — a superuser or table owner bypasses policies outright, which makes the feature silently decorative (ADR-038).
 
 **Provider interfaces over SDK calls.** Embedding and chat both sit behind small protocols resolved by a factory, so swapping providers is one adapter rather than a search-and-replace.
 
@@ -159,10 +161,10 @@ Stated rather than hidden. The full list with severities is in [docs/10-frontend
 - The JWT secret falls back to a known default instead of failing loudly
 
 **Security**
-- Tokens in `localStorage` — an XSS bug becomes a session compromise (ADR-021)
-- Sessions expire hard at 60 minutes with no refresh
-- No rate limiting, so login is brute-forceable and chat spend is uncapped
-- Tenant isolation is enforced in application queries, not by Postgres RLS
+- Tokens in `localStorage` — an XSS bug becomes a session compromise. Kept knowingly; the reasoning and what mitigates it are in ADR-039
+- Sessions expire hard at 60 minutes with no refresh, which bounds a stolen token's life at the cost of being logged out mid-task (ADR-039)
+- Rate limiting keys unauthenticated callers on the connecting address, so a deployment behind a load balancer needs proxy header trust configured before the auth limit means anything (ADR-037)
+- Per-organization chat limits cap the burst, not the day; a daily token budget is phase 17's cost cap
 
 **Reliability**
 - One queue with no priorities, so a bulk upload delays everyone else
@@ -185,19 +187,25 @@ The strategy is deliberate rather than uniform: unit-test the modules whose corr
 
 | Suite | Count | What it covers |
 | --- | --- | --- |
-| pytest | 69 | Auth, tenancy, upload, ingestion, indexing, search, RAG chat, preparation, aggregates, workspace settings, queue claims and sweep |
+| pytest | 89 | Auth, tenancy, upload, ingestion, indexing, search, RAG chat, preparation, aggregates, workspace settings, queue claims and sweep, rate limiting, row-level security |
 | Vitest | 41 | `terminology.ts` (100%), `api/client.ts` (91%), `StatusBadge` (100%) |
 | Playwright | 1 flow | Signup → onboarding → upload → prepare → ask → sourced answer |
 
 Overall unit coverage is ~7% because components and hooks are not unit-tested. Inflating that number by testing presentational markup would cost real time and prove little; the flow those components participate in is covered by the end-to-end spec instead. The end-to-end test also asserts the negative case that matters most — that no API vocabulary or UUID ever reaches the screen.
 
 ```bash
-cd backend && pytest              # 49 tests
+cd backend && pytest              # 81 tests; 8 more with Postgres, below
 cd frontend && npm test           # 41 unit tests
 cd frontend && npm run test:e2e   # end-to-end (needs backend + OpenAI key)
 ```
 
-**In CI:** [`ci.yml`](.github/workflows/ci.yml) runs backend tests plus frontend lint, typecheck, unit tests, and build on every push and pull request — no secrets, no database service, no paid API calls.
+The row-level security tests are the one exception to the no-database rule, because SQLite has no policies to evaluate — they would report tenant isolation as working without ever testing it. They skip unless pointed at a real Postgres:
+
+```bash
+RLS_TEST_DATABASE_URL=postgresql+psycopg://postgres:postgres@localhost:5433/rls_test pytest
+```
+
+**In CI:** [`ci.yml`](.github/workflows/ci.yml) runs backend tests plus frontend lint, typecheck, unit tests, and build on every push and pull request — no secrets and no paid API calls. It does run a Postgres service, solely so the row-level security tests execute; `REQUIRE_RLS_TESTS` makes a skip there a failure, since a skipped security test and a passing one look identical in a job summary.
 
 [`e2e.yml`](.github/workflows/e2e.yml) is manual (`workflow_dispatch`) because each run makes real embedding and chat calls. Running it on every push would turn a few cents into a standing bill and a bottleneck, and the usual result is that someone switches it off. Keeping it deliberate keeps it trustworthy. It needs an `OPENAI_API_KEY` repository secret.
 
@@ -237,6 +245,8 @@ uvicorn app.main:app --reload --port 8000
 ```
 
 API docs at http://127.0.0.1:8000/docs.
+
+Two database URLs, and they are not interchangeable. `MIGRATION_DATABASE_URL` is the owner, which `alembic` needs in order to create tables and to create the application role. `DATABASE_URL` is that application role, which owns nothing — Postgres exempts superusers and table owners from row-level security, so an app connecting as `postgres` would pass through every tenant policy. `.env.example` has both filled in for the local compose stack; the role itself is created by the migration. If the app starts up logging a warning about bypassing row-level security, `DATABASE_URL` is still pointing at the owner.
 
 **3. Frontend**
 

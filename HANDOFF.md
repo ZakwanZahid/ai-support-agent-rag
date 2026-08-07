@@ -1,20 +1,19 @@
 # Session handoff — SupportMind
 
-Written 6 Aug 2026, at the end of Phase 12. Delete this file once Phase 18 ships; it is working
-state, not project documentation.
+Written 6 Aug 2026, updated 7 Aug at the end of Phase 13. Delete this file once Phase 18 ships;
+it is working state, not project documentation.
 
 ## Where things stand
 
-`main` is at `4f8b1fa`, everything pushed, working tree clean, and GitHub shows **only `main`** —
-the phase-named branches were deleted after being merged.
+`main` is at `4f8b1fa`. Phase 13 sits on `security-hardening`, unmerged and unpushed.
 
 | | |
 | --- | --- |
-| Backend tests | 69 (pytest) |
+| Backend tests | 89 (pytest) — 81 on SQLite, 8 need Postgres |
 | Frontend tests | 41 (Vitest) + 1 Playwright flow |
-| ADRs | 36 |
-| Phases complete | 1–12, plus 11b (CI) |
-| Next | Phase 13 |
+| ADRs | 39 |
+| Phases complete | 1–13, plus 11b (CI) |
+| Next | Phase 14 |
 
 ## The plan being followed
 
@@ -23,8 +22,8 @@ defines phases 11–18, their priorities, and a per-phase learning workflow: wri
 `docs/learning-notes/phase-N.md`, then explain in chat what was actually understood versus executed
 from a spec, before moving on.
 
-Remaining: **13** security hardening → **14** deletion and pagination → **15** eval harness and
-retrieval quality → **17** observability and cost caps → **18** deploy.
+Remaining: **14** deletion and pagination → **15** eval harness and retrieval quality →
+**17** observability and cost caps → **18** deploy.
 
 **Phase 16 (LangGraph agent layer) is skipped** by the user's decision. The README's "what I'd build
 next" already says so; keep it that way rather than letting it read as an oversight.
@@ -32,25 +31,36 @@ next" already says so; keep it that way rather than letting it read as an oversi
 ## Decisions already settled — do not relitigate
 
 - **Skip the agent layer** (phase 16).
-- **The 60-minute session with no refresh token is accepted.** Phase 13 writes an ADR explaining the
-  tradeoff instead of building refresh tokens.
-- **Branch names describe the change, not the process.** Phase 13 goes on `security-hardening`, not
+- **The 60-minute session with no refresh token is accepted**, as is the token in `localStorage`.
+  ADR-039 records both tradeoffs; do not reopen them as bugs.
+- **Branch names describe the change, not the process** — `security-hardening`, not
   `phase-13-security`. Few branches; trivial fixes go straight to `main`; delete once merged.
 - **Commits are short**, conventional prefixes, and carry **no `Co-Authored-By` trailer**. This
   repository is a hiring artifact and the user's name is the only one that should appear.
 - FastAPI's `{detail}` error shape stays; no custom error envelope.
 
-## Phase 13 scope
+## Phase 13, as built
 
-- Rate limiting on auth and chat endpoints, Redis-backed (Redis already exists from phase 12). The
-  chat limit matters most: it is the uncapped OpenAI spend path.
-- Postgres Row-Level Security scoped to `organization_id`, as defence-in-depth on top of the
-  existing dependency checks. **Note:** the test suite runs on in-memory SQLite, which cannot
-  exercise RLS at all — that part needs a Postgres service in CI, which `ci.yml` does not currently
-  have.
-- An ADR for the localStorage and session-expiry tradeoffs.
+All three items done, on `security-hardening`. Limitations 4, 6 and 8 are closed.
 
-Closes limitations 4, 6 and 8 in the tracked table.
+- **Rate limiting** — fixed window in Redis. Auth is keyed per client address, chat per
+  organization. Fails open when Redis is unreachable. ADR-037.
+- **Row-Level Security** — policies on the six tenant tables, scoped by a session variable that
+  middleware sets from the request. CI now runs a Postgres service so the tests actually execute,
+  and `REQUIRE_RLS_TESTS` turns a skip into a failure. ADR-038.
+- **ADR-039** for the localStorage and 60-minute-session tradeoffs, plus
+  `docs/learning-notes/phase-13.md`.
+
+**The setup change this phase forces:** there are now two database URLs. `MIGRATION_DATABASE_URL`
+is the owner (`postgres`), `DATABASE_URL` is a non-owning `supportmind_app` role the migration
+creates. This is not optional — Postgres exempts superusers and table owners from row-level
+security, so connecting as `postgres` silently bypasses every policy while `pg_class` still
+reports them enabled and forced. `backend/.env` has already been updated locally and the migration
+has been applied to the dev database. If the API logs a warning about bypassing RLS at startup,
+`DATABASE_URL` is pointing at the wrong role.
+
+Left for later, deliberately: proxy header trust for the auth limit (phase 18, it is a deployment
+concern), and a daily token budget rather than a per-minute rate (phase 17's cost cap).
 
 ## Running it
 
@@ -73,6 +83,12 @@ history), `onboard1@example.com` (workspace and knowledge space, no documents).
   server first.
 - **Postgres is on 5433**, database `rag_support_agent`. One compose file only:
   `backend/docker-compose.yaml`. A duplicate at the repository root was deleted on 6 Aug.
+- **A superuser silently ignores row-level security.** `ENABLE` and `FORCE` both read as on, every
+  policy is listed in `pg_policies`, and none of them apply. This cost a debugging session on 7 Aug
+  when the first RLS test suite passed while enforcing nothing. Any test of tenant isolation has to
+  connect as `supportmind_app`, not `postgres`.
+- **A `rls_test` database exists on the local Postgres** for the row-level security tests. It is
+  torn down and rebuilt by the test module; leave it alone.
 - **RQ on Windows** needs `SimpleWorker` and `TimerDeathPenalty`; `worker.py` handles this, because
   Windows has neither `os.fork` nor `SIGALRM`. Linux deployment gets the forking worker.
 - **The GitHub API rate-limits at 60 requests/hour unauthenticated.** A tight CI-polling loop
