@@ -1,0 +1,572 @@
+{
+  "_comment": [
+    "The fixed question set. Changing it invalidates comparison with stored",
+    "results, so add questions rather than editing them, and note it in the",
+    "learning note when the set changes.",
+    "",
+    "`expected_documents` names the source a correct answer must come from \u2014",
+    "not the wording of the answer. Grading against expected text would need a",
+    "second model to judge it, and would move with the chat model rather than",
+    "with retrieval, which is the thing being measured.",
+    "",
+    "`expected_phrases` is optional and only used with --with-answers. It is a",
+    "crude substring check on purpose: it catches an answer that lost the",
+    "specific fact, without pretending to grade prose.",
+    "",
+    "An empty `expected_documents` means nothing in the corpus answers this.",
+    "The right behaviour is to retrieve weakly and say so, and those cases are",
+    "scored separately as `unanswerable`."
+  ],
+  "questions": [
+    {
+      "id": "refund-window",
+      "question": "How long do I have to ask for a refund?",
+      "expected_documents": [
+        "refund-policy"
+      ],
+      "expected_phrases": [
+        "30 days"
+      ],
+      "kind": "direct"
+    },
+    {
+      "id": "refund-timing",
+      "question": "I was approved for a refund days ago and the money still is not in my account. Why?",
+      "expected_documents": [
+        "refund-policy"
+      ],
+      "expected_phrases": [
+        "five to ten"
+      ],
+      "kind": "paraphrase"
+    },
+    {
+      "id": "refund-giftcard",
+      "question": "Can I get my money back on a gift card?",
+      "expected_documents": [
+        "refund-policy"
+      ],
+      "expected_phrases": [
+        "gift card"
+      ],
+      "kind": "paraphrase"
+    },
+    {
+      "id": "shipping-speed",
+      "question": "How long does shipping take?",
+      "expected_documents": [
+        "shipping"
+      ],
+      "expected_phrases": [
+        "three to five"
+      ],
+      "kind": "direct"
+    },
+    {
+      "id": "shipping-free-threshold",
+      "question": "How much do I need to spend to avoid paying postage?",
+      "expected_documents": [
+        "shipping"
+      ],
+      "expected_phrases": [
+        "40"
+      ],
+      "kind": "paraphrase"
+    },
+    {
+      "id": "shipping-usa",
+      "question": "Do you deliver to Texas?",
+      "expected_documents": [
+        "shipping"
+      ],
+      "expected_phrases": [
+        "United States"
+      ],
+      "kind": "inference"
+    },
+    {
+      "id": "return-postage-cost",
+      "question": "Do I have to pay to send something back if I changed my mind?",
+      "expected_documents": [
+        "returns-and-exchanges"
+      ],
+      "expected_phrases": [
+        "2.95"
+      ],
+      "kind": "paraphrase"
+    },
+    {
+      "id": "exchange-process",
+      "question": "Can I swap this for a different size?",
+      "expected_documents": [
+        "returns-and-exchanges"
+      ],
+      "expected_phrases": [
+        "exchange"
+      ],
+      "kind": "paraphrase"
+    },
+    {
+      "id": "password-length",
+      "question": "What are the password rules?",
+      "expected_documents": [
+        "account-security"
+      ],
+      "expected_phrases": [
+        "twelve"
+      ],
+      "kind": "direct"
+    },
+    {
+      "id": "sms-2fa",
+      "question": "Can I get my login codes by text message?",
+      "expected_documents": [
+        "account-security"
+      ],
+      "expected_phrases": [
+        "SMS"
+      ],
+      "kind": "paraphrase"
+    },
+    {
+      "id": "reset-link-expiry",
+      "question": "My password reset link stopped working overnight.",
+      "expected_documents": [
+        "account-security"
+      ],
+      "expected_phrases": [
+        "one hour"
+      ],
+      "kind": "inference"
+    },
+    {
+      "id": "amex",
+      "question": "Do you take Amex?",
+      "expected_documents": [
+        "billing-and-invoices"
+      ],
+      "expected_phrases": [
+        "American Express"
+      ],
+      "kind": "paraphrase"
+    },
+    {
+      "id": "vat-invoice",
+      "question": "I need a receipt with my company VAT number on it.",
+      "expected_documents": [
+        "billing-and-invoices"
+      ],
+      "expected_phrases": [
+        "VAT"
+      ],
+      "kind": "paraphrase"
+    },
+    {
+      "id": "failed-payment",
+      "question": "My card was declined. Is my order gone?",
+      "expected_documents": [
+        "billing-and-invoices"
+      ],
+      "expected_phrases": [
+        "48 hours"
+      ],
+      "kind": "inference"
+    },
+    {
+      "id": "warranty-length",
+      "question": "How long is the warranty?",
+      "expected_documents": [
+        "warranty"
+      ],
+      "expected_phrases": [
+        "two-year"
+      ],
+      "kind": "direct"
+    },
+    {
+      "id": "warranty-water",
+      "question": "I spilled coffee on it. Will you fix it under warranty?",
+      "expected_documents": [
+        "warranty"
+      ],
+      "expected_phrases": [
+        "liquid"
+      ],
+      "kind": "inference"
+    },
+    {
+      "id": "faulty-vs-warranty",
+      "question": "My headphones broke after four months. What happens?",
+      "expected_documents": [
+        "returns-and-exchanges",
+        "warranty"
+      ],
+      "expected_phrases": [
+        "six months"
+      ],
+      "kind": "cross-document"
+    },
+    {
+      "id": "damaged-return-postage",
+      "question": "The item arrived broken. Do I pay for the return and do I get all my money back?",
+      "expected_documents": [
+        "returns-and-exchanges",
+        "refund-policy"
+      ],
+      "expected_phrases": [
+        "free"
+      ],
+      "kind": "cross-document"
+    },
+    {
+      "id": "unanswerable-hours",
+      "question": "What are your customer service opening hours on a bank holiday?",
+      "expected_documents": [],
+      "expected_phrases": [],
+      "kind": "unanswerable"
+    },
+    {
+      "id": "unanswerable-ceo",
+      "question": "Who is the chief executive of the company?",
+      "expected_documents": [],
+      "expected_phrases": [],
+      "kind": "unanswerable"
+    },
+    {
+      "id": "cancel-before-dispatch",
+      "question": "Can I stop an order that has not shipped yet?",
+      "expected_documents": [
+        "cancellations"
+      ],
+      "expected_phrases": [
+        "dispatch"
+      ],
+      "kind": "paraphrase"
+    },
+    {
+      "id": "cancel-vs-return",
+      "question": "My order already shipped but I do not want it any more. What are my options?",
+      "expected_documents": [
+        "cancellations"
+      ],
+      "expected_phrases": [
+        "return"
+      ],
+      "kind": "inference"
+    },
+    {
+      "id": "subscription-refund-remainder",
+      "question": "If I cancel my subscription halfway through the month do I get that month back?",
+      "expected_documents": [
+        "cancellations"
+      ],
+      "expected_phrases": [
+        "do not refund"
+      ],
+      "kind": "inference"
+    },
+    {
+      "id": "damage-report-window",
+      "question": "How quickly do I need to tell you something arrived broken?",
+      "expected_documents": [
+        "damaged-and-missing-items"
+      ],
+      "expected_phrases": [
+        "48 hours"
+      ],
+      "kind": "paraphrase"
+    },
+    {
+      "id": "half-the-order-arrived",
+      "question": "Only some of my things turned up in the box.",
+      "expected_documents": [
+        "damaged-and-missing-items"
+      ],
+      "expected_phrases": [
+        "split"
+      ],
+      "kind": "inference"
+    },
+    {
+      "id": "wrong-item-keep",
+      "question": "You sent me the wrong thing. Do I have to post it back before you send the right one?",
+      "expected_documents": [
+        "damaged-and-missing-items"
+      ],
+      "expected_phrases": [
+        "prepaid"
+      ],
+      "kind": "inference"
+    },
+    {
+      "id": "two-discount-codes",
+      "question": "Can I use two voucher codes together?",
+      "expected_documents": [
+        "pricing-and-discounts"
+      ],
+      "expected_phrases": [
+        "combined"
+      ],
+      "kind": "paraphrase"
+    },
+    {
+      "id": "cheaper-elsewhere",
+      "question": "I found this cheaper on another site. Will you match it?",
+      "expected_documents": [
+        "pricing-and-discounts"
+      ],
+      "expected_phrases": [
+        "match"
+      ],
+      "kind": "paraphrase"
+    },
+    {
+      "id": "price-dropped-after-buying",
+      "question": "It went on sale three days after I bought it.",
+      "expected_documents": [
+        "pricing-and-discounts"
+      ],
+      "expected_phrases": [
+        "fourteen days"
+      ],
+      "kind": "inference"
+    },
+    {
+      "id": "gift-no-prices",
+      "question": "How do I stop the person receiving it from seeing what I paid?",
+      "expected_documents": [
+        "gift-orders"
+      ],
+      "expected_phrases": [
+        "gift"
+      ],
+      "kind": "paraphrase"
+    },
+    {
+      "id": "giftcard-validity",
+      "question": "How long before a gift card runs out?",
+      "expected_documents": [
+        "gift-orders"
+      ],
+      "expected_phrases": [
+        "eighteen months"
+      ],
+      "kind": "paraphrase"
+    },
+    {
+      "id": "restock-alert",
+      "question": "How do I find out when something sold out comes back?",
+      "expected_documents": [
+        "stock-and-availability"
+      ],
+      "expected_phrases": [
+        "alert"
+      ],
+      "kind": "paraphrase"
+    },
+    {
+      "id": "preorder-charge-timing",
+      "question": "When do you take the money for a pre-order?",
+      "expected_documents": [
+        "stock-and-availability"
+      ],
+      "expected_phrases": [
+        "dispatch"
+      ],
+      "kind": "direct"
+    },
+    {
+      "id": "basket-reservation",
+      "question": "Does putting something in my basket hold it for me?",
+      "expected_documents": [
+        "stock-and-availability"
+      ],
+      "expected_phrases": [
+        "fifteen minutes"
+      ],
+      "kind": "paraphrase"
+    },
+    {
+      "id": "change-address-after-order",
+      "question": "I typed the wrong address. Can you change it?",
+      "expected_documents": [
+        "delivery-problems"
+      ],
+      "expected_phrases": [
+        "dispatch"
+      ],
+      "kind": "paraphrase"
+    },
+    {
+      "id": "missed-delivery-twice",
+      "question": "I was out both times the driver came. Where is my parcel now?",
+      "expected_documents": [
+        "delivery-problems"
+      ],
+      "expected_phrases": [
+        "depot"
+      ],
+      "kind": "inference"
+    },
+    {
+      "id": "signature-threshold",
+      "question": "Can the driver leave an expensive order in my porch?",
+      "expected_documents": [
+        "delivery-problems"
+      ],
+      "expected_phrases": [
+        "signature"
+      ],
+      "kind": "inference"
+    },
+    {
+      "id": "delete-account-orders",
+      "question": "If I delete my account do my past orders disappear too?",
+      "expected_documents": [
+        "data-and-privacy"
+      ],
+      "expected_phrases": [
+        "six years"
+      ],
+      "kind": "inference"
+    },
+    {
+      "id": "stop-marketing-email",
+      "question": "How do I stop you emailing me offers?",
+      "expected_documents": [
+        "data-and-privacy"
+      ],
+      "expected_phrases": [
+        "unsubscribe"
+      ],
+      "kind": "paraphrase"
+    },
+    {
+      "id": "trade-minimum",
+      "question": "How much do I have to buy to get trade prices?",
+      "expected_documents": [
+        "bulk-and-business-orders"
+      ],
+      "expected_phrases": [
+        "twenty"
+      ],
+      "kind": "paraphrase"
+    },
+    {
+      "id": "pay-on-invoice",
+      "question": "Can my company pay on thirty day terms instead of by card?",
+      "expected_documents": [
+        "bulk-and-business-orders"
+      ],
+      "expected_phrases": [
+        "purchase order"
+      ],
+      "kind": "paraphrase"
+    },
+    {
+      "id": "cleaning-alcohol",
+      "question": "Is it safe to clean it with an alcohol wipe?",
+      "expected_documents": [
+        "product-care"
+      ],
+      "expected_phrases": [
+        "alcohol"
+      ],
+      "kind": "direct"
+    },
+    {
+      "id": "storing-battery",
+      "question": "I am putting it away for the winter. Should I charge it first?",
+      "expected_documents": [
+        "product-care"
+      ],
+      "expected_phrases": [
+        "80"
+      ],
+      "kind": "inference"
+    },
+    {
+      "id": "swimming",
+      "question": "Can I take it in the pool?",
+      "expected_documents": [
+        "product-care"
+      ],
+      "expected_phrases": [
+        "splash"
+      ],
+      "kind": "inference"
+    },
+    {
+      "id": "phone-support",
+      "question": "Is there a number I can ring?",
+      "expected_documents": [
+        "support-contact"
+      ],
+      "expected_phrases": [
+        "business"
+      ],
+      "kind": "paraphrase"
+    },
+    {
+      "id": "complaint-escalation",
+      "question": "I am not happy with the answer I got. Who else can look at it?",
+      "expected_documents": [
+        "support-contact"
+      ],
+      "expected_phrases": [
+        "escalat"
+      ],
+      "kind": "paraphrase"
+    },
+    {
+      "id": "money-back-cancel-vs-refund",
+      "question": "What is the difference between cancelling and returning for getting my money back?",
+      "expected_documents": [
+        "cancellations",
+        "refund-policy"
+      ],
+      "expected_phrases": [
+        "cancel"
+      ],
+      "kind": "cross-document"
+    },
+    {
+      "id": "broken-on-arrival-full-path",
+      "question": "It arrived smashed. Do I claim on the warranty or send it back?",
+      "expected_documents": [
+        "damaged-and-missing-items",
+        "warranty"
+      ],
+      "expected_phrases": [
+        "damage"
+      ],
+      "kind": "cross-document"
+    },
+    {
+      "id": "giftcard-refundable",
+      "question": "I bought a gift card by mistake. Can I have the money back?",
+      "expected_documents": [
+        "refund-policy",
+        "gift-orders"
+      ],
+      "expected_phrases": [
+        "gift card"
+      ],
+      "kind": "cross-document"
+    },
+    {
+      "id": "unanswerable-store",
+      "question": "Do you have a physical shop I can visit in Manchester?",
+      "expected_documents": [],
+      "expected_phrases": [],
+      "kind": "unanswerable"
+    },
+    {
+      "id": "unanswerable-jobs",
+      "question": "Are you hiring software engineers?",
+      "expected_documents": [],
+      "expected_phrases": [],
+      "kind": "unanswerable"
+    }
+  ]
+}

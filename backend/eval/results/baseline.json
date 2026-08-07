@@ -1,0 +1,876 @@
+{
+  "label": "baseline",
+  "recorded_at": "2026-08-07T21:09:18.428618+00:00",
+  "git_revision": "7021325",
+  "config": {
+    "embedding_model": "text-embedding-3-small",
+    "chat_model": null,
+    "chunk_size": 1200,
+    "chunk_overlap": 200,
+    "top_k": 5,
+    "retrieval": "vector-only",
+    "python": "3.12.10"
+  },
+  "corpus": {
+    "documents": 16,
+    "chunks": 17,
+    "chunks_per_document": {
+      "account-security": 1,
+      "billing-and-invoices": 1,
+      "bulk-and-business-orders": 1,
+      "cancellations": 2,
+      "damaged-and-missing-items": 1,
+      "data-and-privacy": 1,
+      "delivery-problems": 1,
+      "gift-orders": 1,
+      "pricing-and-discounts": 1,
+      "product-care": 1,
+      "refund-policy": 1,
+      "returns-and-exchanges": 1,
+      "shipping": 1,
+      "stock-and-availability": 1,
+      "support-contact": 1,
+      "warranty": 1
+    }
+  },
+  "summary": {
+    "answerable": 47,
+    "unanswerable": 4,
+    "recall_at_k": 0.9468,
+    "mrr": 0.906,
+    "precision_at_k": 0.2213,
+    "hit_rate": 0.9574,
+    "by_kind": {
+      "cross-document": 0.9,
+      "direct": 1.0,
+      "inference": 0.8571,
+      "paraphrase": 1.0
+    },
+    "failures": [
+      "failed-payment",
+      "price-dropped-after-buying"
+    ],
+    "phrase_failures": [],
+    "unanswerable_top_scores": [
+      0.44,
+      0.2287,
+      0.2972,
+      0.1926
+    ]
+  },
+  "per_question": [
+    {
+      "id": "refund-window",
+      "kind": "direct",
+      "expected": [
+        "refund-policy"
+      ],
+      "retrieved": [
+        "refund-policy",
+        "cancellations",
+        "support-contact",
+        "returns-and-exchanges",
+        "warranty"
+      ],
+      "top_score": 0.5371,
+      "missing_phrases": []
+    },
+    {
+      "id": "refund-timing",
+      "kind": "paraphrase",
+      "expected": [
+        "refund-policy"
+      ],
+      "retrieved": [
+        "refund-policy",
+        "cancellations",
+        "support-contact",
+        "returns-and-exchanges",
+        "damaged-and-missing-items"
+      ],
+      "top_score": 0.4761,
+      "missing_phrases": []
+    },
+    {
+      "id": "refund-giftcard",
+      "kind": "paraphrase",
+      "expected": [
+        "refund-policy"
+      ],
+      "retrieved": [
+        "refund-policy",
+        "gift-orders",
+        "returns-and-exchanges",
+        "cancellations",
+        "damaged-and-missing-items"
+      ],
+      "top_score": 0.4468,
+      "missing_phrases": []
+    },
+    {
+      "id": "shipping-speed",
+      "kind": "direct",
+      "expected": [
+        "shipping"
+      ],
+      "retrieved": [
+        "shipping",
+        "delivery-problems",
+        "refund-policy",
+        "support-contact",
+        "damaged-and-missing-items"
+      ],
+      "top_score": 0.4721,
+      "missing_phrases": []
+    },
+    {
+      "id": "shipping-free-threshold",
+      "kind": "paraphrase",
+      "expected": [
+        "shipping"
+      ],
+      "retrieved": [
+        "shipping",
+        "delivery-problems",
+        "returns-and-exchanges",
+        "pricing-and-discounts",
+        "gift-orders"
+      ],
+      "top_score": 0.2851,
+      "missing_phrases": []
+    },
+    {
+      "id": "shipping-usa",
+      "kind": "inference",
+      "expected": [
+        "shipping"
+      ],
+      "retrieved": [
+        "shipping",
+        "delivery-problems",
+        "damaged-and-missing-items",
+        "pricing-and-discounts",
+        "bulk-and-business-orders"
+      ],
+      "top_score": 0.3392,
+      "missing_phrases": []
+    },
+    {
+      "id": "return-postage-cost",
+      "kind": "paraphrase",
+      "expected": [
+        "returns-and-exchanges"
+      ],
+      "retrieved": [
+        "returns-and-exchanges",
+        "refund-policy",
+        "cancellations",
+        "delivery-problems",
+        "cancellations"
+      ],
+      "top_score": 0.4465,
+      "missing_phrases": []
+    },
+    {
+      "id": "exchange-process",
+      "kind": "paraphrase",
+      "expected": [
+        "returns-and-exchanges"
+      ],
+      "retrieved": [
+        "returns-and-exchanges",
+        "refund-policy",
+        "warranty",
+        "cancellations",
+        "support-contact"
+      ],
+      "top_score": 0.2465,
+      "missing_phrases": []
+    },
+    {
+      "id": "password-length",
+      "kind": "direct",
+      "expected": [
+        "account-security"
+      ],
+      "retrieved": [
+        "account-security",
+        "data-and-privacy",
+        "pricing-and-discounts",
+        "delivery-problems",
+        "billing-and-invoices"
+      ],
+      "top_score": 0.5014,
+      "missing_phrases": []
+    },
+    {
+      "id": "sms-2fa",
+      "kind": "paraphrase",
+      "expected": [
+        "account-security"
+      ],
+      "retrieved": [
+        "account-security",
+        "support-contact",
+        "gift-orders",
+        "cancellations",
+        "pricing-and-discounts"
+      ],
+      "top_score": 0.4137,
+      "missing_phrases": []
+    },
+    {
+      "id": "reset-link-expiry",
+      "kind": "inference",
+      "expected": [
+        "account-security"
+      ],
+      "retrieved": [
+        "account-security",
+        "delivery-problems",
+        "cancellations",
+        "damaged-and-missing-items",
+        "support-contact"
+      ],
+      "top_score": 0.4077,
+      "missing_phrases": []
+    },
+    {
+      "id": "amex",
+      "kind": "paraphrase",
+      "expected": [
+        "billing-and-invoices"
+      ],
+      "retrieved": [
+        "billing-and-invoices",
+        "data-and-privacy",
+        "gift-orders",
+        "refund-policy",
+        "returns-and-exchanges"
+      ],
+      "top_score": 0.2754,
+      "missing_phrases": []
+    },
+    {
+      "id": "vat-invoice",
+      "kind": "paraphrase",
+      "expected": [
+        "billing-and-invoices"
+      ],
+      "retrieved": [
+        "billing-and-invoices",
+        "pricing-and-discounts",
+        "bulk-and-business-orders",
+        "support-contact",
+        "refund-policy"
+      ],
+      "top_score": 0.3281,
+      "missing_phrases": []
+    },
+    {
+      "id": "failed-payment",
+      "kind": "inference",
+      "expected": [
+        "billing-and-invoices"
+      ],
+      "retrieved": [
+        "cancellations",
+        "gift-orders",
+        "cancellations",
+        "damaged-and-missing-items",
+        "refund-policy"
+      ],
+      "top_score": 0.3582,
+      "missing_phrases": []
+    },
+    {
+      "id": "warranty-length",
+      "kind": "direct",
+      "expected": [
+        "warranty"
+      ],
+      "retrieved": [
+        "warranty",
+        "product-care",
+        "support-contact",
+        "refund-policy",
+        "returns-and-exchanges"
+      ],
+      "top_score": 0.6073,
+      "missing_phrases": []
+    },
+    {
+      "id": "warranty-water",
+      "kind": "inference",
+      "expected": [
+        "warranty"
+      ],
+      "retrieved": [
+        "warranty",
+        "product-care",
+        "support-contact",
+        "returns-and-exchanges",
+        "damaged-and-missing-items"
+      ],
+      "top_score": 0.4454,
+      "missing_phrases": []
+    },
+    {
+      "id": "faulty-vs-warranty",
+      "kind": "cross-document",
+      "expected": [
+        "returns-and-exchanges",
+        "warranty"
+      ],
+      "retrieved": [
+        "warranty",
+        "product-care",
+        "support-contact",
+        "damaged-and-missing-items",
+        "refund-policy"
+      ],
+      "top_score": 0.3511,
+      "missing_phrases": []
+    },
+    {
+      "id": "damaged-return-postage",
+      "kind": "cross-document",
+      "expected": [
+        "returns-and-exchanges",
+        "refund-policy"
+      ],
+      "retrieved": [
+        "returns-and-exchanges",
+        "damaged-and-missing-items",
+        "refund-policy",
+        "warranty",
+        "delivery-problems"
+      ],
+      "top_score": 0.4453,
+      "missing_phrases": []
+    },
+    {
+      "id": "unanswerable-hours",
+      "kind": "unanswerable",
+      "expected": [],
+      "retrieved": [
+        "support-contact",
+        "delivery-problems",
+        "refund-policy",
+        "shipping",
+        "stock-and-availability"
+      ],
+      "top_score": 0.44,
+      "missing_phrases": []
+    },
+    {
+      "id": "unanswerable-ceo",
+      "kind": "unanswerable",
+      "expected": [],
+      "retrieved": [
+        "support-contact",
+        "data-and-privacy",
+        "warranty",
+        "billing-and-invoices",
+        "bulk-and-business-orders"
+      ],
+      "top_score": 0.2287,
+      "missing_phrases": []
+    },
+    {
+      "id": "cancel-before-dispatch",
+      "kind": "paraphrase",
+      "expected": [
+        "cancellations"
+      ],
+      "retrieved": [
+        "cancellations",
+        "cancellations",
+        "delivery-problems",
+        "damaged-and-missing-items",
+        "shipping"
+      ],
+      "top_score": 0.545,
+      "missing_phrases": []
+    },
+    {
+      "id": "cancel-vs-return",
+      "kind": "inference",
+      "expected": [
+        "cancellations"
+      ],
+      "retrieved": [
+        "cancellations",
+        "damaged-and-missing-items",
+        "delivery-problems",
+        "returns-and-exchanges",
+        "refund-policy"
+      ],
+      "top_score": 0.4401,
+      "missing_phrases": []
+    },
+    {
+      "id": "subscription-refund-remainder",
+      "kind": "inference",
+      "expected": [
+        "cancellations"
+      ],
+      "retrieved": [
+        "cancellations",
+        "cancellations",
+        "refund-policy",
+        "billing-and-invoices",
+        "returns-and-exchanges"
+      ],
+      "top_score": 0.4977,
+      "missing_phrases": []
+    },
+    {
+      "id": "damage-report-window",
+      "kind": "paraphrase",
+      "expected": [
+        "damaged-and-missing-items"
+      ],
+      "retrieved": [
+        "damaged-and-missing-items",
+        "support-contact",
+        "delivery-problems",
+        "warranty",
+        "returns-and-exchanges"
+      ],
+      "top_score": 0.4907,
+      "missing_phrases": []
+    },
+    {
+      "id": "half-the-order-arrived",
+      "kind": "inference",
+      "expected": [
+        "damaged-and-missing-items"
+      ],
+      "retrieved": [
+        "damaged-and-missing-items",
+        "delivery-problems",
+        "returns-and-exchanges",
+        "stock-and-availability",
+        "shipping"
+      ],
+      "top_score": 0.3987,
+      "missing_phrases": []
+    },
+    {
+      "id": "wrong-item-keep",
+      "kind": "inference",
+      "expected": [
+        "damaged-and-missing-items"
+      ],
+      "retrieved": [
+        "damaged-and-missing-items",
+        "returns-and-exchanges",
+        "delivery-problems",
+        "refund-policy",
+        "gift-orders"
+      ],
+      "top_score": 0.3347,
+      "missing_phrases": []
+    },
+    {
+      "id": "two-discount-codes",
+      "kind": "paraphrase",
+      "expected": [
+        "pricing-and-discounts"
+      ],
+      "retrieved": [
+        "pricing-and-discounts",
+        "gift-orders",
+        "billing-and-invoices",
+        "refund-policy",
+        "cancellations"
+      ],
+      "top_score": 0.3275,
+      "missing_phrases": []
+    },
+    {
+      "id": "cheaper-elsewhere",
+      "kind": "paraphrase",
+      "expected": [
+        "pricing-and-discounts"
+      ],
+      "retrieved": [
+        "pricing-and-discounts",
+        "shipping",
+        "refund-policy",
+        "bulk-and-business-orders",
+        "warranty"
+      ],
+      "top_score": 0.317,
+      "missing_phrases": []
+    },
+    {
+      "id": "price-dropped-after-buying",
+      "kind": "inference",
+      "expected": [
+        "pricing-and-discounts"
+      ],
+      "retrieved": [
+        "refund-policy",
+        "support-contact",
+        "warranty",
+        "shipping",
+        "stock-and-availability"
+      ],
+      "top_score": 0.2421,
+      "missing_phrases": []
+    },
+    {
+      "id": "gift-no-prices",
+      "kind": "paraphrase",
+      "expected": [
+        "gift-orders"
+      ],
+      "retrieved": [
+        "cancellations",
+        "data-and-privacy",
+        "cancellations",
+        "gift-orders",
+        "billing-and-invoices"
+      ],
+      "top_score": 0.2875,
+      "missing_phrases": []
+    },
+    {
+      "id": "giftcard-validity",
+      "kind": "paraphrase",
+      "expected": [
+        "gift-orders"
+      ],
+      "retrieved": [
+        "gift-orders",
+        "refund-policy",
+        "cancellations",
+        "support-contact",
+        "stock-and-availability"
+      ],
+      "top_score": 0.4544,
+      "missing_phrases": []
+    },
+    {
+      "id": "restock-alert",
+      "kind": "paraphrase",
+      "expected": [
+        "stock-and-availability"
+      ],
+      "retrieved": [
+        "stock-and-availability",
+        "support-contact",
+        "refund-policy",
+        "damaged-and-missing-items",
+        "cancellations"
+      ],
+      "top_score": 0.4439,
+      "missing_phrases": []
+    },
+    {
+      "id": "preorder-charge-timing",
+      "kind": "direct",
+      "expected": [
+        "stock-and-availability"
+      ],
+      "retrieved": [
+        "refund-policy",
+        "stock-and-availability",
+        "cancellations",
+        "billing-and-invoices",
+        "pricing-and-discounts"
+      ],
+      "top_score": 0.3404,
+      "missing_phrases": []
+    },
+    {
+      "id": "basket-reservation",
+      "kind": "paraphrase",
+      "expected": [
+        "stock-and-availability"
+      ],
+      "retrieved": [
+        "stock-and-availability",
+        "cancellations",
+        "bulk-and-business-orders",
+        "pricing-and-discounts",
+        "delivery-problems"
+      ],
+      "top_score": 0.3556,
+      "missing_phrases": []
+    },
+    {
+      "id": "change-address-after-order",
+      "kind": "paraphrase",
+      "expected": [
+        "delivery-problems"
+      ],
+      "retrieved": [
+        "delivery-problems",
+        "damaged-and-missing-items",
+        "returns-and-exchanges",
+        "account-security",
+        "cancellations"
+      ],
+      "top_score": 0.2752,
+      "missing_phrases": []
+    },
+    {
+      "id": "missed-delivery-twice",
+      "kind": "inference",
+      "expected": [
+        "delivery-problems"
+      ],
+      "retrieved": [
+        "damaged-and-missing-items",
+        "delivery-problems",
+        "shipping",
+        "returns-and-exchanges",
+        "stock-and-availability"
+      ],
+      "top_score": 0.4717,
+      "missing_phrases": []
+    },
+    {
+      "id": "signature-threshold",
+      "kind": "inference",
+      "expected": [
+        "delivery-problems"
+      ],
+      "retrieved": [
+        "delivery-problems",
+        "damaged-and-missing-items",
+        "cancellations",
+        "shipping",
+        "bulk-and-business-orders"
+      ],
+      "top_score": 0.3922,
+      "missing_phrases": []
+    },
+    {
+      "id": "delete-account-orders",
+      "kind": "inference",
+      "expected": [
+        "data-and-privacy"
+      ],
+      "retrieved": [
+        "data-and-privacy",
+        "cancellations",
+        "cancellations",
+        "gift-orders",
+        "pricing-and-discounts"
+      ],
+      "top_score": 0.4439,
+      "missing_phrases": []
+    },
+    {
+      "id": "stop-marketing-email",
+      "kind": "paraphrase",
+      "expected": [
+        "data-and-privacy"
+      ],
+      "retrieved": [
+        "data-and-privacy",
+        "cancellations",
+        "cancellations",
+        "support-contact",
+        "delivery-problems"
+      ],
+      "top_score": 0.3139,
+      "missing_phrases": []
+    },
+    {
+      "id": "trade-minimum",
+      "kind": "paraphrase",
+      "expected": [
+        "bulk-and-business-orders"
+      ],
+      "retrieved": [
+        "bulk-and-business-orders",
+        "pricing-and-discounts",
+        "stock-and-availability",
+        "returns-and-exchanges",
+        "shipping"
+      ],
+      "top_score": 0.4988,
+      "missing_phrases": []
+    },
+    {
+      "id": "pay-on-invoice",
+      "kind": "paraphrase",
+      "expected": [
+        "bulk-and-business-orders"
+      ],
+      "retrieved": [
+        "refund-policy",
+        "billing-and-invoices",
+        "bulk-and-business-orders",
+        "gift-orders",
+        "delivery-problems"
+      ],
+      "top_score": 0.418,
+      "missing_phrases": []
+    },
+    {
+      "id": "cleaning-alcohol",
+      "kind": "direct",
+      "expected": [
+        "product-care"
+      ],
+      "retrieved": [
+        "product-care",
+        "warranty",
+        "data-and-privacy",
+        "refund-policy",
+        "support-contact"
+      ],
+      "top_score": 0.3225,
+      "missing_phrases": []
+    },
+    {
+      "id": "storing-battery",
+      "kind": "inference",
+      "expected": [
+        "product-care"
+      ],
+      "retrieved": [
+        "product-care",
+        "billing-and-invoices",
+        "warranty",
+        "stock-and-availability",
+        "cancellations"
+      ],
+      "top_score": 0.2903,
+      "missing_phrases": []
+    },
+    {
+      "id": "swimming",
+      "kind": "inference",
+      "expected": [
+        "product-care"
+      ],
+      "retrieved": [
+        "product-care",
+        "refund-policy",
+        "warranty",
+        "gift-orders",
+        "cancellations"
+      ],
+      "top_score": 0.2537,
+      "missing_phrases": []
+    },
+    {
+      "id": "phone-support",
+      "kind": "paraphrase",
+      "expected": [
+        "support-contact"
+      ],
+      "retrieved": [
+        "support-contact",
+        "delivery-problems",
+        "damaged-and-missing-items",
+        "shipping",
+        "returns-and-exchanges"
+      ],
+      "top_score": 0.3992,
+      "missing_phrases": []
+    },
+    {
+      "id": "complaint-escalation",
+      "kind": "paraphrase",
+      "expected": [
+        "support-contact"
+      ],
+      "retrieved": [
+        "support-contact",
+        "damaged-and-missing-items",
+        "refund-policy",
+        "delivery-problems",
+        "warranty"
+      ],
+      "top_score": 0.2006,
+      "missing_phrases": []
+    },
+    {
+      "id": "money-back-cancel-vs-refund",
+      "kind": "cross-document",
+      "expected": [
+        "cancellations",
+        "refund-policy"
+      ],
+      "retrieved": [
+        "cancellations",
+        "refund-policy",
+        "cancellations",
+        "returns-and-exchanges",
+        "gift-orders"
+      ],
+      "top_score": 0.4411,
+      "missing_phrases": []
+    },
+    {
+      "id": "broken-on-arrival-full-path",
+      "kind": "cross-document",
+      "expected": [
+        "damaged-and-missing-items",
+        "warranty"
+      ],
+      "retrieved": [
+        "warranty",
+        "damaged-and-missing-items",
+        "returns-and-exchanges",
+        "support-contact",
+        "product-care"
+      ],
+      "top_score": 0.5501,
+      "missing_phrases": []
+    },
+    {
+      "id": "giftcard-refundable",
+      "kind": "cross-document",
+      "expected": [
+        "refund-policy",
+        "gift-orders"
+      ],
+      "retrieved": [
+        "gift-orders",
+        "refund-policy",
+        "returns-and-exchanges",
+        "cancellations",
+        "cancellations"
+      ],
+      "top_score": 0.4422,
+      "missing_phrases": []
+    },
+    {
+      "id": "unanswerable-store",
+      "kind": "unanswerable",
+      "expected": [],
+      "retrieved": [
+        "pricing-and-discounts",
+        "shipping",
+        "delivery-problems",
+        "support-contact",
+        "returns-and-exchanges"
+      ],
+      "top_score": 0.2972,
+      "missing_phrases": []
+    },
+    {
+      "id": "unanswerable-jobs",
+      "kind": "unanswerable",
+      "expected": [],
+      "retrieved": [
+        "data-and-privacy",
+        "warranty",
+        "support-contact",
+        "billing-and-invoices",
+        "pricing-and-discounts"
+      ],
+      "top_score": 0.1926,
+      "missing_phrases": []
+    }
+  ]
+}
