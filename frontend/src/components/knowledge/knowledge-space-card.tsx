@@ -1,6 +1,7 @@
 import { ArrowRight, BookOpen, Check, CircleDashed } from "lucide-react";
 import Link from "next/link";
 
+import { DeleteKnowledgeSpaceAction } from "@/components/knowledge/delete-knowledge-space-action";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { formatRelativeDate } from "@/lib/utils";
@@ -8,10 +9,12 @@ import type { KnowledgeSpace } from "@/types/knowledge";
 
 interface KnowledgeSpaceCardProps {
   knowledgeSpace: KnowledgeSpace;
+  workspaceId: string;
 }
 
 export function KnowledgeSpaceCard({
   knowledgeSpace,
+  workspaceId,
 }: KnowledgeSpaceCardProps) {
   const documentCount = knowledgeSpace.document_count ?? 0;
   const readyCount = knowledgeSpace.ready_document_count ?? 0;
@@ -60,7 +63,11 @@ export function KnowledgeSpaceCard({
           </span>
         </div>
 
-        <div className="mt-5 flex justify-end">
+        <div className="mt-5 flex items-center justify-end gap-1">
+          <DeleteKnowledgeSpaceAction
+            workspaceId={workspaceId}
+            knowledgeSpace={knowledgeSpace}
+          />
           <Button asChild size="sm" variant="secondary">
             <Link href={`/dashboard/knowledge/${knowledgeSpace.id}`}>
               Open

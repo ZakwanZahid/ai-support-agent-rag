@@ -47,6 +47,8 @@ export default function DocumentsPage() {
     refetch,
     prepare,
     preparingDocumentId,
+    remove,
+    deletingDocumentId,
   } = useDocuments({ workspaceId });
 
   const knowledgeSpacesQuery = useQuery({
@@ -201,6 +203,8 @@ export default function DocumentsPage() {
                   knowledgeSpaceNames={knowledgeSpaceNames}
                   onPrepare={prepare}
                   preparingDocumentId={preparingDocumentId}
+                  onDelete={remove}
+                  deletingDocumentId={deletingDocumentId}
                 />
               </div>
 
@@ -214,6 +218,8 @@ export default function DocumentsPage() {
                     )}
                     onPrepare={prepare}
                     isSubmitting={preparingDocumentId === document.id}
+                    onDelete={remove}
+                    isDeleting={deletingDocumentId === document.id}
                   />
                 ))}
               </ul>

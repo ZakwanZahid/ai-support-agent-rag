@@ -3,6 +3,7 @@ import uuid
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.documents.cleanup import remove_directory
 from app.models.knowledge_base import KnowledgeBase
 from app.repositories.document_repository import DocumentCounts, DocumentRepository
 from app.repositories.knowledge_base_repository import KnowledgeBaseRepository
@@ -15,6 +16,10 @@ class KnowledgeBaseAlreadyExistsError(Exception):
 
 class KnowledgeBaseNotFoundError(Exception):
     pass
+
+
+class KnowledgeBaseBusyError(Exception):
+    """One of its documents is mid-preparation. See DocumentBusyError."""
 
 
 NO_DOCUMENTS = DocumentCounts(total=0, ready=0)
@@ -91,3 +96,33 @@ class KnowledgeBaseService:
 
         counts = self.documents.counts_by_knowledge_base(organization_id)
         return _to_response(knowledge_base, counts.get(knowledge_base.id, NO_DOCUMENTS))
+
+    def delete(
+        self,
+        *,
+        organization_id: uuid.UUID,
+        knowledge_base_id: uuid.UUID,
+    ) -> None:
+        """Delete a knowledge base and everything indexed under it.
+
+        Its documents and their chunks go with it, through the database's own
+        cascades. Its conversations do not: the foreign key is `SET NULL`, so
+        past threads survive as history with nothing left to search. Deleting
+        the answers because the source was removed would be destroying a
+        second thing the user did not ask about.
+        """
+        knowledge_base = self.knowledge_bases.get_by_id(
+            organization_id=organization_id,
+            knowledge_base_id=knowledge_base_id,
+        )
+        if knowledge_base is None:
+            raise KnowledgeBaseNotFoundError
+        if self.documents.count_preparing(
+            organization_id=organization_id,
+            knowledge_base_id=knowledge_base_id,
+        ):
+            raise KnowledgeBaseBusyError
+
+        self.knowledge_bases.delete(knowledge_base)
+        self.db.commit()
+        remove_directory(str(organization_id), str(knowledge_base_id))

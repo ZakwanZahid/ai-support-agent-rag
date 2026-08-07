@@ -4,6 +4,7 @@ import uuid
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.documents.cleanup import remove_directory
 from app.models.organization import Organization
 from app.models.user import User
 from app.repositories.organization_repository import OrganizationRepository
@@ -59,6 +60,29 @@ class OrganizationService:
         self.db.commit()
         self.db.refresh(organization)
         return organization
+
+    def delete(self, organization_id: uuid.UUID) -> None:
+        """Delete a workspace and every row that belongs to it.
+
+        The cascades reach knowledge bases, documents, chunks, conversations,
+        messages, citations and memberships — everything keyed on
+        `organization_id`. The users themselves survive: a person is not owned
+        by a workspace, and someone in two workspaces must keep their account
+        when one goes.
+
+        No busy check here. A workspace deletion is the one case where waiting
+        for in-flight preparation is the wrong answer: the whole tenant is
+        going, so a document part-way through indexing is not work anyone
+        wants to preserve, and any job that survives finds its rows gone and
+        exits.
+        """
+        organization = self.organizations.get_by_id(organization_id)
+        if organization is None:
+            raise OrganizationNotFoundError
+
+        self.organizations.delete(organization)
+        self.db.commit()
+        remove_directory(str(organization_id))
 
     @staticmethod
     def _generate_slug(name: str) -> str:

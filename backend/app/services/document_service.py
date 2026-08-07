@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.core.storage import resolve_storage_path
+from app.documents.cleanup import remove_files
 from app.models.document import Document
 from app.repositories.document_repository import DocumentRepository
 from app.repositories.knowledge_base_repository import KnowledgeBaseRepository
@@ -43,6 +44,16 @@ class UploadTooLargeError(Exception):
 
 class DocumentStorageError(Exception):
     pass
+
+
+class DocumentBusyError(Exception):
+    """A worker may be part-way through this document right now.
+
+    Deleting it would not stop the work — the embedding calls are already in
+    flight and already billable — so the honest answer is to refuse and say
+    why, rather than accept a delete that silently fails to cancel anything.
+    A stale claim is released by the sweep, so the wait is bounded.
+    """
 
 
 class DocumentService:
@@ -130,6 +141,27 @@ class DocumentService:
         if document is None:
             raise DocumentNotFoundError
         return document
+
+    def delete(
+        self,
+        *,
+        organization_id: uuid.UUID,
+        document_id: uuid.UUID,
+    ) -> None:
+        document = self.documents.get_by_id(
+            organization_id=organization_id,
+            document_id=document_id,
+        )
+        if document is None:
+            raise DocumentNotFoundError
+        if document.status == "processing":
+            raise DocumentBusyError
+
+        file_path = document.file_path
+        self.documents.delete(document)
+        self.db.commit()
+        # After the commit, deliberately. See app/documents/cleanup.py.
+        remove_files([file_path] if file_path else [])
 
     @staticmethod
     def _validate_file(file: UploadFile) -> tuple[str, str, str]:

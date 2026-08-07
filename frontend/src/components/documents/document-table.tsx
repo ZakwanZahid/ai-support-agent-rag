@@ -4,6 +4,7 @@ import { FileText } from "lucide-react";
 import Link from "next/link";
 
 import { StatusBadge } from "@/components/common/status-badge";
+import { DeleteDocumentAction } from "@/components/documents/delete-document-action";
 import { DocumentActions } from "@/components/documents/document-actions";
 import { formatRelativeDate } from "@/lib/utils";
 import type { KnowledgeDocument } from "@/types/document";
@@ -14,6 +15,8 @@ interface DocumentTableProps {
   knowledgeSpaceNames: Map<string, string>;
   onPrepare: (documentId: string, force?: boolean) => void;
   preparingDocumentId?: string;
+  onDelete: (documentId: string) => void;
+  deletingDocumentId?: string;
 }
 
 /** Desktop presentation. The mobile card list renders the same data. */
@@ -22,6 +25,8 @@ export function DocumentTable({
   knowledgeSpaceNames,
   onPrepare,
   preparingDocumentId,
+  onDelete,
+  deletingDocumentId,
 }: DocumentTableProps) {
   return (
     <div className="overflow-x-auto rounded-lg border border-border bg-surface">
@@ -96,12 +101,19 @@ export function DocumentTable({
                 {formatRelativeDate(document.created_at)}
               </td>
 
-              <td className="px-4 py-3 text-right">
-                <DocumentActions
-                  document={document}
-                  onPrepare={onPrepare}
-                  isSubmitting={preparingDocumentId === document.id}
-                />
+              <td className="px-4 py-3">
+                <div className="flex items-center justify-end gap-1">
+                  <DocumentActions
+                    document={document}
+                    onPrepare={onPrepare}
+                    isSubmitting={preparingDocumentId === document.id}
+                  />
+                  <DeleteDocumentAction
+                    document={document}
+                    onDelete={onDelete}
+                    isDeleting={deletingDocumentId === document.id}
+                  />
+                </div>
               </td>
             </tr>
           ))}

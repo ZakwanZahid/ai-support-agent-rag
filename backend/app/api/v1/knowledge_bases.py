@@ -9,6 +9,7 @@ from app.models.organization import OrganizationMember
 from app.schemas.knowledge_base import KnowledgeBaseCreate, KnowledgeBaseResponse
 from app.services.knowledge_base_service import (
     KnowledgeBaseAlreadyExistsError,
+    KnowledgeBaseBusyError,
     KnowledgeBaseNotFoundError,
     KnowledgeBaseService,
 )
@@ -71,4 +72,31 @@ def get_knowledge_base(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Knowledge base not found",
+        )
+
+
+@router.delete("/{knowledge_base_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_knowledge_base(
+    organization_id: uuid.UUID,
+    knowledge_base_id: uuid.UUID,
+    db: Annotated[Session, Depends(get_db)],
+    _membership: Annotated[OrganizationMember, Depends(owner_or_admin)],
+) -> None:
+    try:
+        KnowledgeBaseService(db).delete(
+            organization_id=organization_id,
+            knowledge_base_id=knowledge_base_id,
+        )
+    except KnowledgeBaseNotFoundError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Knowledge base not found",
+        )
+    except KnowledgeBaseBusyError:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                "A document in this knowledge base is being prepared right now. "
+                "Wait for it to finish, then delete it."
+            ),
         )

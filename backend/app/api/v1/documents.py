@@ -26,6 +26,7 @@ from app.models.document import Document
 from app.models.organization import OrganizationMember
 from app.schemas.document import DocumentResponse
 from app.services.document_service import (
+    DocumentBusyError,
     DocumentNotFoundError,
     DocumentService,
     DocumentStorageError,
@@ -132,4 +133,31 @@ def get_document(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Document not found",
+        )
+
+
+@router.delete("/documents/{document_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_document(
+    organization_id: uuid.UUID,
+    document_id: uuid.UUID,
+    db: Annotated[Session, Depends(get_db)],
+    _membership: Annotated[OrganizationMember, Depends(owner_or_admin)],
+) -> None:
+    try:
+        DocumentService(db).delete(
+            organization_id=organization_id,
+            document_id=document_id,
+        )
+    except DocumentNotFoundError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Document not found",
+        )
+    except DocumentBusyError:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                "This document is being prepared right now. "
+                "Wait for it to finish, then delete it."
+            ),
         )

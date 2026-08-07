@@ -4,6 +4,7 @@ import { FileText } from "lucide-react";
 import Link from "next/link";
 
 import { StatusBadge } from "@/components/common/status-badge";
+import { DeleteDocumentAction } from "@/components/documents/delete-document-action";
 import { DocumentActions } from "@/components/documents/document-actions";
 import { formatRelativeDate } from "@/lib/utils";
 import type { KnowledgeDocument } from "@/types/document";
@@ -13,6 +14,8 @@ interface DocumentMobileCardProps {
   knowledgeSpaceName?: string;
   onPrepare: (documentId: string, force?: boolean) => void;
   isSubmitting?: boolean;
+  onDelete: (documentId: string) => void;
+  isDeleting?: boolean;
 }
 
 /** Stacked presentation of a table row, for viewports too narrow to scan columns. */
@@ -21,6 +24,8 @@ export function DocumentMobileCard({
   knowledgeSpaceName,
   onPrepare,
   isSubmitting,
+  onDelete,
+  isDeleting,
 }: DocumentMobileCardProps) {
   return (
     <li className="rounded-lg border border-border bg-surface p-4">
@@ -53,12 +58,19 @@ export function DocumentMobileCard({
         </p>
       ) : null}
 
-      <DocumentActions
-        className="mt-3 w-full"
-        document={document}
-        onPrepare={onPrepare}
-        isSubmitting={isSubmitting}
-      />
+      <div className="mt-3 flex items-center gap-2">
+        <DocumentActions
+          className="flex-1"
+          document={document}
+          onPrepare={onPrepare}
+          isSubmitting={isSubmitting}
+        />
+        <DeleteDocumentAction
+          document={document}
+          onDelete={onDelete}
+          isDeleting={isDeleting}
+        />
+      </div>
     </li>
   );
 }

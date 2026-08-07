@@ -115,6 +115,22 @@ export async function indexDocument(
   return response.data;
 }
 
+/**
+ * Permanently removes a document, its extracted passages, and its file.
+ *
+ * Rejected with 409 while the document is being prepared: deleting the row
+ * would not call back an embedding request already in flight, so the API
+ * refuses rather than accepting a delete that cancels nothing.
+ */
+export async function deleteDocument(
+  organizationId: UUID,
+  documentId: UUID,
+): Promise<void> {
+  await apiClient.delete(
+    `${organizationPath(organizationId)}/documents/${encodeURIComponent(documentId)}`,
+  );
+}
+
 export const documentsApi = {
   list: listDocuments,
   get: getDocument,
@@ -122,4 +138,5 @@ export const documentsApi = {
   prepare: prepareDocument,
   ingest: ingestDocument,
   index: indexDocument,
+  remove: deleteDocument,
 };
