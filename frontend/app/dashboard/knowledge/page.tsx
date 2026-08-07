@@ -61,6 +61,7 @@ export default function KnowledgeSpacesPage() {
             <KnowledgeSpaceCard
               key={knowledgeSpace.id}
               knowledgeSpace={knowledgeSpace}
+              workspaceId={workspaceId!}
             />
           ))}
         </div>

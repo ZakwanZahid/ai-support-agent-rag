@@ -76,3 +76,28 @@ def update_organization(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Organization not found",
         )
+
+
+owner_only = require_role(["owner"])
+
+
+@router.delete("/{organization_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_organization(
+    organization_id: uuid.UUID,
+    db: Annotated[Session, Depends(get_db)],
+    _membership: Annotated[OrganizationMember, Depends(owner_only)],
+) -> None:
+    """Delete a workspace and everything in it.
+
+    Owner only, not owner-or-admin. Every other destructive action in the API
+    is recoverable by re-uploading; this one takes the whole tenant, including
+    other members' chat history, so it belongs to the one role that cannot be
+    granted by a peer.
+    """
+    try:
+        OrganizationService(db).delete(organization_id)
+    except OrganizationNotFoundError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Organization not found",
+        )

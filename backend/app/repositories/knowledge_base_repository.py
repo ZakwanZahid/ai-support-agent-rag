@@ -1,6 +1,6 @@
 import uuid
 
-from sqlalchemy import select
+from sqlalchemy import delete as sa_delete, select
 from sqlalchemy.orm import Session
 
 from app.models.knowledge_base import KnowledgeBase
@@ -49,6 +49,15 @@ class KnowledgeBaseRepository:
             KnowledgeBase.name == name,
         )
         return self.db.scalar(statement)
+
+    def delete(self, knowledge_base: KnowledgeBase) -> None:
+        """Core DELETE, so the database's own cascades apply. See
+        DocumentRepository.delete for why the ORM is the wrong tool here."""
+        self.db.execute(
+            sa_delete(KnowledgeBase).where(KnowledgeBase.id == knowledge_base.id),
+            execution_options={"synchronize_session": False},
+        )
+        self.db.expire_all()
 
     def list_for_organization(self, organization_id: uuid.UUID) -> list[KnowledgeBase]:
         statement = (

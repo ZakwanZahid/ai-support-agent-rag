@@ -1,6 +1,6 @@
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, event
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.orm import Session, sessionmaker
@@ -71,6 +71,20 @@ engine = create_engine(
     connect_args={"check_same_thread": False},
     poolclass=StaticPool,
 )
+
+
+@event.listens_for(engine, "connect")
+def _enforce_sqlite_foreign_keys(dbapi_connection, _record):
+    """SQLite ignores foreign keys unless asked not to.
+
+    Deletion relies on `ON DELETE CASCADE` doing the work, and without this
+    pragma SQLite silently leaves the children behind — so the tests would
+    pass while asserting nothing about the behaviour Postgres will actually
+    have.
+    """
+    cursor = dbapi_connection.cursor()
+    cursor.execute("PRAGMA foreign_keys=ON")
+    cursor.close()
 TestingSessionLocal = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
 test_tables = [
     User.__table__,

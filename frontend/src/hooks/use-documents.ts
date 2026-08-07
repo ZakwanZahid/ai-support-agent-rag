@@ -4,7 +4,11 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 import { getAPIErrorMessage, normalizeAPIError } from "@/lib/api/client";
-import { listDocuments, prepareDocument } from "@/lib/api/documents";
+import {
+  deleteDocument,
+  listDocuments,
+  prepareDocument,
+} from "@/lib/api/documents";
 import { queryKeys } from "@/lib/query-keys";
 import { isDocumentInProgress } from "@/lib/terminology";
 
@@ -75,6 +79,24 @@ export function useDocuments({
     },
   });
 
+  const deleteMutation = useMutation({
+    mutationFn: (documentId: string) => deleteDocument(workspaceId!, documentId),
+    onSuccess: () => {
+      toast.success("Document deleted.");
+      void documentsQuery.refetch();
+    },
+    onError: (error) => {
+      // 409 here is the API refusing to delete a document mid-preparation.
+      // Its message says so, and it is the one the user needs.
+      toast.error(getAPIErrorMessage(error));
+    },
+    onSettled: () => {
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.knowledgeBases(workspaceId),
+      });
+    },
+  });
+
   const documents = documentsQuery.data ?? [];
 
   return {
@@ -87,6 +109,10 @@ export function useDocuments({
     /** The row currently awaiting a response, so only its button spins. */
     preparingDocumentId: prepareMutation.isPending
       ? prepareMutation.variables?.documentId
+      : undefined,
+    remove: (documentId: string) => deleteMutation.mutate(documentId),
+    deletingDocumentId: deleteMutation.isPending
+      ? deleteMutation.variables
       : undefined,
   };
 }

@@ -3,6 +3,7 @@
 import { LogOut } from "lucide-react";
 
 import { PageHeader } from "@/components/common/page-header";
+import { DeleteWorkspaceSection } from "@/components/settings/delete-workspace-section";
 import {
   ComingLater,
   SettingsSection,
@@ -69,6 +70,10 @@ export default function SettingsPage() {
           "Usage visible per key",
         ]}
       />
+
+      {activeWorkspace ? (
+        <DeleteWorkspaceSection workspace={activeWorkspace} />
+      ) : null}
 
       <ComingLater
         title="Model settings"

@@ -319,6 +319,33 @@ def test_identity_tables_stay_readable_without_a_scope(session_factory, two_tena
         db.close()
 
 
+def test_an_unfiltered_delete_only_reaches_the_scoped_tenant(
+    session_factory, two_tenants
+):
+    """The policy applies to writes too, which is what makes deletion safe.
+
+    A `DELETE` with no organization filter is the same class of bug as a
+    `SELECT` with none, and considerably worse. Under the policy it removes
+    the scoped tenant's rows and leaves everyone else's.
+    """
+    first, second = two_tenants
+
+    with organization_scope(str(first)):
+        db = session_factory()
+        try:
+            db.query(KnowledgeBase).delete()
+            db.commit()
+        finally:
+            db.close()
+
+    with organization_scope(str(second)):
+        db = session_factory()
+        try:
+            assert db.scalars(select(KnowledgeBase.name)).all() == ["Second handbook"]
+        finally:
+            db.close()
+
+
 def test_the_startup_check_tells_the_two_roles_apart(engine, owner_engine):
     """The check that would have caught the mistake this file was built around."""
     assert warn_if_row_level_security_is_bypassed(engine) is True

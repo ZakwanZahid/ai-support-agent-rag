@@ -42,9 +42,17 @@ export async function updateOrganization(
   return response.data;
 }
 
+/** Permanently removes a workspace and everything in it. Owners only. */
+export async function deleteOrganization(organizationId: UUID): Promise<void> {
+  await apiClient.delete(
+    `/api/v1/organizations/${encodeURIComponent(organizationId)}`,
+  );
+}
+
 export const organizationsApi = {
   create: createOrganization,
   list: listOrganizations,
   get: getOrganization,
   update: updateOrganization,
+  remove: deleteOrganization,
 };

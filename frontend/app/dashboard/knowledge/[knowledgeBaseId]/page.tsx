@@ -12,8 +12,10 @@ import { EmptyState } from "@/components/common/empty-state";
 import { ErrorState } from "@/components/common/error-state";
 import { LoadingSkeleton } from "@/components/common/loading-skeleton";
 import { PageHeader } from "@/components/common/page-header";
+import { DeleteDocumentAction } from "@/components/documents/delete-document-action";
 import { DocumentActions } from "@/components/documents/document-actions";
 import { DocumentDropzone } from "@/components/documents/document-dropzone";
+import { DeleteKnowledgeSpaceAction } from "@/components/knowledge/delete-knowledge-space-action";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { useDocuments } from "@/hooks/use-documents";
@@ -47,6 +49,8 @@ export default function KnowledgeSpaceDetailPage() {
     refetch: refetchDocuments,
     prepare,
     preparingDocumentId,
+    remove,
+    deletingDocumentId,
   } = useDocuments({ workspaceId, knowledgeSpaceId });
 
   const uploadMutation = useMutation({
@@ -111,18 +115,27 @@ export default function KnowledgeSpaceDetailPage() {
           title={knowledgeSpace.name}
           description={knowledgeSpace.description ?? undefined}
           actions={
-            isReady ? (
-              <Button asChild>
-                <Link
-                  href={`/dashboard/chat?knowledgeSpace=${encodeURIComponent(
-                    knowledgeSpace.id,
-                  )}`}
-                >
-                  <Sparkles aria-hidden="true" />
-                  Ask AI
-                </Link>
-              </Button>
-            ) : undefined
+            <div className="flex items-center gap-1">
+              {isReady ? (
+                <Button asChild>
+                  <Link
+                    href={`/dashboard/chat?knowledgeSpace=${encodeURIComponent(
+                      knowledgeSpace.id,
+                    )}`}
+                  >
+                    <Sparkles aria-hidden="true" />
+                    Ask AI
+                  </Link>
+                </Button>
+              ) : null}
+              {workspaceId ? (
+                <DeleteKnowledgeSpaceAction
+                  workspaceId={workspaceId}
+                  knowledgeSpace={knowledgeSpace}
+                  redirectTo="/dashboard/knowledge"
+                />
+              ) : null}
+            </div>
           }
         />
 
@@ -220,6 +233,11 @@ export default function KnowledgeSpaceDetailPage() {
                   document={document}
                   onPrepare={prepare}
                   isSubmitting={preparingDocumentId === document.id}
+                />
+                <DeleteDocumentAction
+                  document={document}
+                  onDelete={remove}
+                  isDeleting={deletingDocumentId === document.id}
                 />
               </li>
             ))}

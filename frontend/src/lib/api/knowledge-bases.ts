@@ -42,8 +42,24 @@ export async function getKnowledgeBase(
   return response.data;
 }
 
+/**
+ * Permanently removes a knowledge space and every document in it.
+ *
+ * Chat threads that used it survive with no knowledge space attached: the
+ * history stays readable, it just has nothing left to search.
+ */
+export async function deleteKnowledgeBase(
+  organizationId: UUID,
+  knowledgeBaseId: UUID,
+): Promise<void> {
+  await apiClient.delete(
+    `${knowledgeBasesPath(organizationId)}/${encodeURIComponent(knowledgeBaseId)}`,
+  );
+}
+
 export const knowledgeBasesApi = {
   create: createKnowledgeBase,
   list: listKnowledgeBases,
   get: getKnowledgeBase,
+  remove: deleteKnowledgeBase,
 };

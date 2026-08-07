@@ -1,7 +1,7 @@
 import uuid
 from dataclasses import dataclass
 
-from sqlalchemy import case, func, select
+from sqlalchemy import case, delete as sa_delete, func, select
 from sqlalchemy.orm import Session
 
 from app.models.document import Document
@@ -64,6 +64,55 @@ class DocumentRepository:
             statement = statement.where(Document.knowledge_base_id == knowledge_base_id)
         statement = statement.order_by(Document.created_at.desc(), Document.id)
         return list(self.db.scalars(statement).all())
+
+    def delete(self, document: Document) -> None:
+        """Remove one document row, letting the database cascade the rest.
+
+        A Core DELETE rather than `session.delete`, deliberately. The ORM
+        would load every chunk and citation in order to null their foreign
+        keys — which are `NOT NULL`, so it fails — and it would do it one
+        collection at a time. The `ON DELETE CASCADE` already declared on
+        those columns is both correct and a single statement.
+        """
+        self.db.execute(
+            sa_delete(Document).where(Document.id == document.id),
+            execution_options={"synchronize_session": False},
+        )
+        self.db.expire_all()
+
+    def file_paths_for_knowledge_base(
+        self,
+        *,
+        organization_id: uuid.UUID,
+        knowledge_base_id: uuid.UUID | None = None,
+    ) -> list[str]:
+        """Stored paths of the uploads about to be orphaned.
+
+        Read before the rows are deleted, because afterwards there is nothing
+        left to say which files belonged to them.
+        """
+        statement = select(Document.file_path).where(
+            Document.organization_id == organization_id,
+            Document.file_path.is_not(None),
+        )
+        if knowledge_base_id is not None:
+            statement = statement.where(Document.knowledge_base_id == knowledge_base_id)
+        return [path for path in self.db.scalars(statement).all() if path]
+
+    def count_preparing(
+        self,
+        *,
+        organization_id: uuid.UUID,
+        knowledge_base_id: uuid.UUID | None = None,
+    ) -> int:
+        """How many documents a worker may currently be part-way through."""
+        statement = select(func.count(Document.id)).where(
+            Document.organization_id == organization_id,
+            Document.status == "processing",
+        )
+        if knowledge_base_id is not None:
+            statement = statement.where(Document.knowledge_base_id == knowledge_base_id)
+        return self.db.scalar(statement) or 0
 
     def counts_by_knowledge_base(
         self,
