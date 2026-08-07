@@ -5,8 +5,8 @@
 A multi-tenant RAG application: FastAPI and Postgres/pgvector behind a Next.js product surface that never asks the user to understand retrieval, embeddings, or indexing.
 
 [![CI](https://github.com/ZakwanZahid/ai-support-agent-rag/actions/workflows/ci.yml/badge.svg)](https://github.com/ZakwanZahid/ai-support-agent-rag/actions/workflows/ci.yml)
-![Backend tests](https://img.shields.io/badge/backend-89%20tests-brightgreen)
-![Frontend tests](https://img.shields.io/badge/frontend-41%20tests-brightgreen)
+![Backend tests](https://img.shields.io/badge/backend-115%20tests-brightgreen)
+![Frontend tests](https://img.shields.io/badge/frontend-52%20tests-brightgreen)
 ![E2E](https://img.shields.io/badge/e2e-1%20flow%20(manual)-blue)
 
 <!-- Placeholders until Phase 18 deploys. Do not link these until they resolve. -->
@@ -135,7 +135,7 @@ Answers are assembled the same way every time: embed the question, retrieve the 
 | Database | PostgreSQL + pgvector |
 | Models | OpenAI `text-embedding-3-small`, `gpt-4o-mini`, behind provider interfaces |
 | Queue | Redis + RQ for durable document preparation |
-| Tests | pytest (89) · Vitest (41) · Playwright (1 end-to-end flow) |
+| Tests | pytest (115) · Vitest (52) · Playwright (1 end-to-end flow) |
 
 ## Key engineering decisions
 
@@ -146,6 +146,8 @@ Answers are assembled the same way every time: embed the question, retrieve the 
 **Aggregate counts, not N+1.** Knowledge bases return `document_count`/`ready_document_count`; conversations return `message_count`/`last_message_preview`. Grouped and correlated subqueries, so a list is one round trip regardless of length — instead of the client fetching every child row to count it. See ADR-031.
 
 **Tenant scoping is a dependency, not a convention.** `require_organization_member` and `require_role` run before any service. A missing workspace and a workspace you don't belong to both return `404`, so membership isn't discoverable by probing.
+
+**Lists are paged with keyset cursors, not offsets.** `OFFSET` costs more the deeper the page, and both paged collections are mutated while someone reads them — delete a row on page one and every later row shifts up, so the reader silently skips one. A cursor names a position in the sort order instead of a count. See ADR-041.
 
 **And tenant isolation doesn't depend on that alone.** Postgres row-level security scopes every tenant table to the requesting organization, so a query that forgets its filter returns nothing rather than someone else's rows. The application connects as a role that owns nothing — a superuser or table owner bypasses policies outright, which makes the feature silently decorative (ADR-038).
 
@@ -171,8 +173,9 @@ Stated rather than hidden. The full list with severities is in [docs/10-frontend
 - The stale sweep is uncoordinated; two running at once would both try to recover the same documents
 
 **Scale and product**
-- No pagination anywhere; document search and filtering are client-side
-- Nothing can be deleted — documents, knowledge spaces, or workspaces
+- Document search is `ILIKE '%term%'`, which cannot use an index — real search needs full-text or trigram (ADR-041)
+- The filter counts are a `GROUP BY` over every matching document on each request
+- Deletion is immediate and total; there is no trash or undo (ADR-040)
 - Vector-only retrieval, naive character-window chunking, no re-ranking, and no evaluation harness to tell whether a change helped
 - Answers don't stream
 
@@ -187,15 +190,15 @@ The strategy is deliberate rather than uniform: unit-test the modules whose corr
 
 | Suite | Count | What it covers |
 | --- | --- | --- |
-| pytest | 89 | Auth, tenancy, upload, ingestion, indexing, search, RAG chat, preparation, aggregates, workspace settings, queue claims and sweep, rate limiting, row-level security |
-| Vitest | 41 | `terminology.ts` (100%), `api/client.ts` (91%), `StatusBadge` (100%) |
+| pytest | 115 | Auth, tenancy, upload, ingestion, indexing, search, RAG chat, preparation, aggregates, workspace settings, queue claims and sweep, rate limiting, row-level security, deletion, pagination |
+| Vitest | 52 | `terminology.ts` (100%), `api/client.ts` (91%), `StatusBadge` (100%), `ConfirmDeleteDialog` |
 | Playwright | 1 flow | Signup → onboarding → upload → prepare → ask → sourced answer |
 
 Overall unit coverage is ~7% because components and hooks are not unit-tested. Inflating that number by testing presentational markup would cost real time and prove little; the flow those components participate in is covered by the end-to-end spec instead. The end-to-end test also asserts the negative case that matters most — that no API vocabulary or UUID ever reaches the screen.
 
 ```bash
-cd backend && pytest              # 81 tests; 8 more with Postgres, below
-cd frontend && npm test           # 41 unit tests
+cd backend && pytest              # 106 tests; 9 more with Postgres, below
+cd frontend && npm test           # 52 unit tests
 cd frontend && npm run test:e2e   # end-to-end (needs backend + OpenAI key)
 ```
 

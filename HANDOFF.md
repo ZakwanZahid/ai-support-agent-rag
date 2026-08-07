@@ -1,19 +1,20 @@
 # Session handoff — SupportMind
 
-Written 6 Aug 2026, updated 7 Aug at the end of Phase 13. Delete this file once Phase 18 ships;
+Written 6 Aug 2026, updated 7 Aug at the end of Phase 14. Delete this file once Phase 18 ships;
 it is working state, not project documentation.
 
 ## Where things stand
 
-`main` is at `4f8b1fa`. Phase 13 sits on `security-hardening`, unmerged and unpushed.
+`main` has phases 13 and 14 merged, unpushed. Branches are **kept after merging** now, not
+deleted: `security-hardening`, `resource-deletion`, `pagination-and-search`.
 
 | | |
 | --- | --- |
-| Backend tests | 89 (pytest) — 81 on SQLite, 8 need Postgres |
-| Frontend tests | 41 (Vitest) + 1 Playwright flow |
-| ADRs | 39 |
-| Phases complete | 1–13, plus 11b (CI) |
-| Next | Phase 14 |
+| Backend tests | 115 (pytest) — 106 on SQLite, 9 need Postgres |
+| Frontend tests | 52 (Vitest) + 1 Playwright flow |
+| ADRs | 41 |
+| Phases complete | 1–14, plus 11b (CI) |
+| Next | Phase 15 |
 
 ## The plan being followed
 
@@ -22,8 +23,8 @@ defines phases 11–18, their priorities, and a per-phase learning workflow: wri
 `docs/learning-notes/phase-N.md`, then explain in chat what was actually understood versus executed
 from a spec, before moving on.
 
-Remaining: **14** deletion and pagination → **15** eval harness and retrieval quality →
-**17** observability and cost caps → **18** deploy.
+Remaining: **15** eval harness and retrieval quality → **17** observability and cost caps →
+**18** deploy.
 
 **Phase 16 (LangGraph agent layer) is skipped** by the user's decision. The README's "what I'd build
 next" already says so; keep it that way rather than letting it read as an oversight.
@@ -62,6 +63,24 @@ has been applied to the dev database. If the API logs a warning about bypassing 
 Left for later, deliberately: proxy header trust for the auth limit (phase 18, it is a deployment
 concern), and a daily token budget rather than a per-minute rate (phase 17's cost cap).
 
+## Phase 14, as built
+
+Two branches, both merged and kept: `resource-deletion`, then `pagination-and-search`.
+
+- **Deletion** of documents, knowledge spaces and workspaces. The database cascades do the work
+  via one Core `DELETE`; files are removed after the commit. A document mid-preparation refuses
+  with `409`. Workspace deletion is owner-only and gated behind typing the workspace name.
+  ADR-040.
+- **Keyset pagination** on documents and messages, plus server-side search and status filtering.
+  The filter-to-status mapping lives in `terminology.ts`. ADR-041.
+- `docs/learning-notes/phase-14.md`.
+
+Skipped from the master prompt's ⚪ list, as it advises: team management UI, editable account
+details, dark mode, message copy/regenerate/edit/delete.
+
+**Contract change:** `GET /documents` now returns `{items, next_cursor, has_more, status_counts}`
+rather than a bare array. Anything reading that endpoint needs `["items"]`.
+
 ## Running it
 
 Three processes. Without the worker, prepared documents never leave "Uploaded".
@@ -87,6 +106,9 @@ history), `onboard1@example.com` (workspace and knowledge space, no documents).
   policy is listed in `pg_policies`, and none of them apply. This cost a debugging session on 7 Aug
   when the first RLS test suite passed while enforcing nothing. Any test of tenant isolation has to
   connect as `supportmind_app`, not `postgres`.
+- **Restart uvicorn after backend changes.** It runs without `--reload`, so a stale process keeps
+  serving old routes and the symptom is a confusing `405` or a response in the previous shape.
+  Twice on 7 Aug a bound port meant a newly started server exited and the old one kept answering.
 - **A `rls_test` database exists on the local Postgres** for the row-level security tests. It is
   torn down and rebuilt by the test module; leave it alone.
 - **RQ on Windows** needs `SimpleWorker` and `TimerDeathPenalty`; `worker.py` handles this, because
