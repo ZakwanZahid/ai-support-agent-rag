@@ -229,3 +229,35 @@ Failures are classified before a retry is scheduled. Bad input — a corrupt fil
 Status: Accepted
 
 Retries only help when a job fails. A worker killed between claiming a document and finishing it fails nothing: the queue has no record to retry, and the API will not start another job because the status already reads `processing`. Nothing in the system notices, and the user watches a progress timeline that will never move. A periodic sweep finds documents that have been processing longer than any real preparation should take and either requeues them or fails them, depending on attempts already spent. It compares against the claim timestamp where one exists and the row's `updated_at` where one does not, because a job lost before any worker claimed it leaves no claim behind. The threshold is deliberately generous: failing a document that is merely slow is worse than recovering it a few minutes late.
+
+## ADR-037: Rate Limits Keyed to the Risk, Not to the User
+
+Status: Accepted
+
+Auth and chat are both limited, on different keys, because they carry different risks. Auth endpoints are limited per client address: the threat is credential stuffing against accounts this server has never seen, so the caller's identity is the only thing available to key on. Chat is limited per organization: each message costs an embedding call plus a completion, the bill lands on whoever owns the API key, and a per-user limit would let one organization multiply its spend by adding members. Counting lives in Redis, already present from ADR-033, so every API process spends one budget rather than one each.
+
+The window is fixed rather than sliding. A fixed window lets a caller send up to twice the limit across a boundary, which is the known cost of one `INCR` and one `EXPIRE` per request instead of a stored request log to trim; at these limits the burst is not worth a sorted set per caller. The limiter fails open: if Redis is unreachable the request proceeds and the outage is logged, because a limiter that is down should not also be a login outage. That choice is what makes this a spend and abuse control rather than a security boundary — the boundaries are authentication and the policies in ADR-038.
+
+The address key is only as good as the deployment. Behind a load balancer, `request.client.host` is the balancer, and trusting `X-Forwarded-For` without knowing the hop count would let a caller forge an identity and opt out of the limit entirely. Proxy header trust is configuration for the deployment phase, not a default to guess at here.
+
+## ADR-038: Row-Level Security as the Second Line, With a Role That It Applies To
+
+Status: Accepted
+
+Every organization-scoped table carries a policy admitting only rows whose `organization_id` matches `app.current_organization_id`, a session variable set from the request's organization. The repositories already filter by organization; this exists for the query that forgets to, which then returns nothing instead of another tenant's rows. Unset scope resolves to NULL and matches nothing, so the failure mode is an empty result — a bug someone notices immediately — rather than a leak.
+
+Two implementation facts turned out to matter more than the policies themselves. Postgres exempts superusers and a table's owner from row-level security, so an application connecting as `postgres` passes through every policy while the database reports them as enabled and forced; the first version of the test suite passed for exactly this reason. The migration therefore creates a non-owning login role for the application, migrations keep the owner through `MIGRATION_DATABASE_URL`, and a startup check logs loudly when the connected role bypasses the policies anyway. Separately, SQLAlchemy returns its connection to the pool on commit, so a setting applied once per session is gone by the next statement; the scope is applied on `after_begin`, for every transaction.
+
+Identity and membership tables — `users`, `organizations`, `organization_members` — are deliberately excluded: they are what a request consults to work out which organization it is in, so they cannot be gated on that having already been decided. The stale-preparation sweep is inherently cross-tenant and was given no way around the policies; it walks the organizations and runs the same scoped query inside each, which costs a query per organization on a small table and keeps the invariant worth having.
+
+The scope is taken from the client-supplied path or header, which is safe because it narrows rather than grants: whether this user may use that organization is still decided by `require_organization_member`. Because the test suite runs on SQLite, which has neither policies nor session variables, these tests run against a real Postgres in CI or fail — a skipped security test reads the same as a passing one in a job summary.
+
+## ADR-039: localStorage and a Sixty-Minute Session, Stated Rather Than Fixed
+
+Status: Accepted, with known cost
+
+The access token stays in `localStorage` (ADR-021) and still expires after sixty minutes with no refresh token. Both are shortcuts, and this records what they cost and why they were kept.
+
+`localStorage` is readable by any script running on the origin, so an XSS vulnerability becomes a stolen session. The alternative — a `Secure`, `HttpOnly`, `SameSite` cookie — moves the token out of JavaScript's reach entirely, which is the right end state, but it is not a one-line change: it means a login endpoint that sets a cookie, CSRF protection for every state-changing request now that the browser attaches credentials automatically, and CORS with credentials across the two origins this app runs on. What mitigates the current position is narrow but real: the frontend renders no user-supplied HTML, there is no third-party script on the authenticated pages, and the token's short life bounds how long a stolen one is useful.
+
+The sixty-minute expiry with no refresh is the other half of that bound, and it is why the expiry has not been extended: a longer-lived token in `localStorage` would make the first tradeoff worse. The cost is a user being logged out mid-task with no warning. Refresh tokens would fix the interruption, but done properly they mean rotation, reuse detection, and a revocation store — real work whose payoff is convenience, not isolation, which is why rate limiting and tenant policies were built first. The honest summary is that this is a portfolio application's session design, chosen with the failure modes known rather than by not thinking about them.

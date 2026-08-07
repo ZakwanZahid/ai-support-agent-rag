@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.db.session import SessionLocal
+from app.db.tenancy import organization_scope
 from app.documents.preparation import prepare_document
 from app.ingestion.loaders import TextExtractionError
 from app.jobs.claims import claim_document, mark_failed, release_document
@@ -63,6 +64,31 @@ def prepare_document_job(
 
     document_uuid = uuid.UUID(document_id)
     organization_uuid = uuid.UUID(organization_id)
+
+    # A job has no request to inherit a tenant scope from, so it declares its
+    # own. Without this every query it makes would be refused by the policies.
+    with organization_scope(organization_id):
+        return _run(
+            document_uuid,
+            organization_uuid,
+            force,
+            job_id=job_id,
+            session_factory=session_factory,
+            prepare=prepare,
+        )
+
+
+def _run(
+    document_uuid: uuid.UUID,
+    organization_uuid: uuid.UUID,
+    force: bool,
+    *,
+    job_id: str,
+    session_factory: Callable[[], Session],
+    prepare: Callable[..., None],
+) -> str:
+    document_id = str(document_uuid)
+    organization_id = str(organization_uuid)
 
     db = session_factory()
     try:

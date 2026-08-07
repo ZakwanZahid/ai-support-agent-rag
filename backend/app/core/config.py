@@ -18,6 +18,22 @@ class Settings(BaseSettings):
         default="postgresql+psycopg://postgres:postgres@localhost:5432/ai_support_agent_rag",
         alias="DATABASE_URL",
     )
+    # Migrations connect as the table owner; the application does not. Row-level
+    # security is bypassed outright by a superuser and by a table's owner, so an
+    # application connecting as `postgres` would pass through every policy. Left
+    # unset, migrations fall back to DATABASE_URL — convenient, and fine while
+    # DATABASE_URL still points at the owner, which is the pre-RLS state.
+    migration_database_url: str | None = Field(
+        default=None,
+        alias="MIGRATION_DATABASE_URL",
+    )
+    # The non-owning login role the application uses, created by the RLS
+    # migration. DATABASE_URL should name this role, not the owner.
+    app_db_role: str = Field(default="supportmind_app", alias="APP_DB_ROLE")
+    app_db_password: str = Field(
+        default="supportmind_app",
+        alias="APP_DB_PASSWORD",
+    )
     jwt_secret_key: str = Field(default="change-me-in-development", alias="JWT_SECRET_KEY")
     jwt_algorithm: str = Field(default="HS256", alias="JWT_ALGORITHM")
     access_token_expire_minutes: int = Field(default=60, alias="ACCESS_TOKEN_EXPIRE_MINUTES", gt=0)
@@ -63,6 +79,34 @@ class Settings(BaseSettings):
     preparation_job_timeout_seconds: int = Field(
         default=600,
         alias="PREPARATION_JOB_TIMEOUT_SECONDS",
+        gt=0,
+    )
+    # Rate limiting. Disabling it is for tests and for local work where a
+    # reload loop would otherwise lock you out of your own login form.
+    rate_limit_enabled: bool = Field(default=True, alias="RATE_LIMIT_ENABLED")
+    # Auth is limited per client address: enough headroom for someone
+    # mistyping a password, far below what credential stuffing needs.
+    rate_limit_auth_max_requests: int = Field(
+        default=10,
+        alias="RATE_LIMIT_AUTH_MAX_REQUESTS",
+        gt=0,
+    )
+    rate_limit_auth_window_seconds: int = Field(
+        default=60,
+        alias="RATE_LIMIT_AUTH_WINDOW_SECONDS",
+        gt=0,
+    )
+    # Chat is limited per organization, because the cost of a message is an
+    # embedding call plus a completion and the bill is per organization, not
+    # per user or per address.
+    rate_limit_chat_max_requests: int = Field(
+        default=20,
+        alias="RATE_LIMIT_CHAT_MAX_REQUESTS",
+        gt=0,
+    )
+    rate_limit_chat_window_seconds: int = Field(
+        default=60,
+        alias="RATE_LIMIT_CHAT_WINDOW_SECONDS",
         gt=0,
     )
     openai_api_key: str | None = Field(default=None, alias="OPENAI_API_KEY")
