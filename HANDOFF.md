@@ -1,20 +1,21 @@
 # Session handoff — SupportMind
 
-Written 6 Aug 2026, updated 7 Aug at the end of Phase 14. Delete this file once Phase 18 ships;
+Written 6 Aug 2026, updated 7 Aug at the end of Phase 15. Delete this file once Phase 18 ships;
 it is working state, not project documentation.
 
 ## Where things stand
 
-`main` has phases 13 and 14 merged, unpushed. Branches are **kept after merging** now, not
-deleted: `security-hardening`, `resource-deletion`, `pagination-and-search`.
+`main` has phases 13, 14 and 15 merged, unpushed. Branches are **kept after merging** now, not
+deleted: `security-hardening`, `resource-deletion`, `pagination-and-search`,
+`retrieval-eval-harness`, `hybrid-retrieval`.
 
 | | |
 | --- | --- |
-| Backend tests | 115 (pytest) — 106 on SQLite, 9 need Postgres |
+| Backend tests | 150 (pytest) — 141 on SQLite, 9 need Postgres |
 | Frontend tests | 52 (Vitest) + 1 Playwright flow |
-| ADRs | 41 |
-| Phases complete | 1–14, plus 11b (CI) |
-| Next | Phase 15 |
+| ADRs | 43 |
+| Phases complete | 1–15, plus 11b (CI) |
+| Next | Phase 17 |
 
 ## The plan being followed
 
@@ -23,8 +24,7 @@ defines phases 11–18, their priorities, and a per-phase learning workflow: wri
 `docs/learning-notes/phase-N.md`, then explain in chat what was actually understood versus executed
 from a spec, before moving on.
 
-Remaining: **15** eval harness and retrieval quality → **17** observability and cost caps →
-**18** deploy.
+Remaining: **17** observability and cost caps → **18** deploy.
 
 **Phase 16 (LangGraph agent layer) is skipped** by the user's decision. The README's "what I'd build
 next" already says so; keep it that way rather than letting it read as an oversight.
@@ -35,7 +35,8 @@ next" already says so; keep it that way rather than letting it read as an oversi
 - **The 60-minute session with no refresh token is accepted**, as is the token in `localStorage`.
   ADR-039 records both tradeoffs; do not reopen them as bugs.
 - **Branch names describe the change, not the process** — `security-hardening`, not
-  `phase-13-security`. Few branches; trivial fixes go straight to `main`; delete once merged.
+  `phase-13-security`. Few branches; trivial fixes go straight to `main`. **Merged branches are
+  kept**, not deleted — the user wants the branch list as a record of how the work was split.
 - **Commits are short**, conventional prefixes, and carry **no `Co-Authored-By` trailer**. This
   repository is a hiring artifact and the user's name is the only one that should appear.
 - FastAPI's `{detail}` error shape stays; no custom error envelope.
@@ -77,6 +78,31 @@ Two branches, both merged and kept: `resource-deletion`, then `pagination-and-se
 
 Skipped from the master prompt's ⚪ list, as it advises: team management UI, editable account
 details, dark mode, message copy/regenerate/edit/delete.
+
+## Phase 15, as built
+
+Two branches, both merged and kept: `retrieval-eval-harness`, then `hybrid-retrieval`.
+
+- **Eval harness** in `backend/eval/` — fixed corpus, 57 questions tagged by kind, recall@k / MRR /
+  precision@k, embeddings cached by content hash. Run it with
+  `python -m eval.run --label x --compare eval/results/baseline.json`. Not in `pytest`; its
+  scoring arithmetic is. ADR-042.
+- **Structure-aware chunking + hybrid retrieval + citation dedup.** ADR-043.
+- `docs/learning-notes/phase-15.md`.
+
+**The eval corrected the plan twice**, and this is the part worth retelling: structured chunking
+*broke* two literal-token questions, and hybrid retrieval measured on its own did nothing at all.
+Neither change is right without the other. Baseline → final: recall@k 0.9528 → 0.9811,
+precision 0.2189 → 0.3283, MRR 0.8899 → 0.8805 (accepted; more chunks compete for rank one).
+
+**Documents indexed before this phase still have the old chunks.** Chunking happens at
+preparation time, so existing documents keep whole-document chunks with no heading prefixes until
+they are prepared again with `force`. New uploads get the new chunker automatically. Nothing is
+broken by the mix — hybrid search handles both — but a before/after comparison in the running app
+needs a re-prepare first.
+
+`price-dropped-after-buying` is the one question still failing. Left as a known gap rather than
+tuned away, since fitting a constant to one question in 57 is how an eval starts lying.
 
 **Contract change:** `GET /documents` now returns `{items, next_cursor, has_more, status_counts}`
 rather than a bare array. Anything reading that endpoint needs `["items"]`.

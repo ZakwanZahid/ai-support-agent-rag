@@ -5,7 +5,7 @@
 A multi-tenant RAG application: FastAPI and Postgres/pgvector behind a Next.js product surface that never asks the user to understand retrieval, embeddings, or indexing.
 
 [![CI](https://github.com/ZakwanZahid/ai-support-agent-rag/actions/workflows/ci.yml/badge.svg)](https://github.com/ZakwanZahid/ai-support-agent-rag/actions/workflows/ci.yml)
-![Backend tests](https://img.shields.io/badge/backend-115%20tests-brightgreen)
+![Backend tests](https://img.shields.io/badge/backend-150%20tests-brightgreen)
 ![Frontend tests](https://img.shields.io/badge/frontend-52%20tests-brightgreen)
 ![E2E](https://img.shields.io/badge/e2e-1%20flow%20(manual)-blue)
 
@@ -135,7 +135,8 @@ Answers are assembled the same way every time: embed the question, retrieve the 
 | Database | PostgreSQL + pgvector |
 | Models | OpenAI `text-embedding-3-small`, `gpt-4o-mini`, behind provider interfaces |
 | Queue | Redis + RQ for durable document preparation |
-| Tests | pytest (115) · Vitest (52) · Playwright (1 end-to-end flow) |
+| Retrieval | pgvector + Postgres full-text, fused by reciprocal rank |
+| Tests | pytest (150) · Vitest (52) · Playwright (1 end-to-end flow) |
 
 ## Key engineering decisions
 
@@ -146,6 +147,8 @@ Answers are assembled the same way every time: embed the question, retrieve the 
 **Aggregate counts, not N+1.** Knowledge bases return `document_count`/`ready_document_count`; conversations return `message_count`/`last_message_preview`. Grouped and correlated subqueries, so a list is one round trip regardless of length — instead of the client fetching every child row to count it. See ADR-031.
 
 **Tenant scoping is a dependency, not a convention.** `require_organization_member` and `require_role` run before any service. A missing workspace and a workspace you don't belong to both return `404`, so membership isn't discoverable by probing.
+
+**Retrieval changes are measured, not argued.** An [evaluation harness](backend/eval/) indexes a fixed corpus, asks a fixed question set, and scores which documents came back — questions tagged by kind, so a change that helps direct lookups and hurts paraphrases cannot hide behind an average. It corrected the plan twice: structure-aware chunking broke two literal-token questions, and hybrid retrieval measured alone did nothing at all. Together: recall@k 0.9528 → 0.9811, precision 0.2189 → 0.3283. See ADR-042 and ADR-043.
 
 **Lists are paged with keyset cursors, not offsets.** `OFFSET` costs more the deeper the page, and both paged collections are mutated while someone reads them — delete a row on page one and every later row shifts up, so the reader silently skips one. A cursor names a position in the sort order instead of a count. See ADR-041.
 
@@ -176,7 +179,10 @@ Stated rather than hidden. The full list with severities is in [docs/10-frontend
 - Document search is `ILIKE '%term%'`, which cannot use an index — real search needs full-text or trigram (ADR-041)
 - The filter counts are a `GROUP BY` over every matching document on each request
 - Deletion is immediate and total; there is no trash or undo (ADR-040)
-- Vector-only retrieval, naive character-window chunking, no re-ranking, and no evaluation harness to tell whether a change helped
+- The eval corpus is 16 documents and 57 questions, written by the same person who wrote the corpus — enough to catch a regression, not enough to separate 0.97 from 0.98 (ADR-042)
+- `ts_rank` cannot use the GIN index for ordering, so ranking is a scan over the matched rows
+- RRF's constant and the vector/keyword weighting are untuned; with 57 questions, tuning them would fit the noise
+- No re-ranking, and nothing evaluates the generated answer — only which sources were retrieved
 - Answers don't stream
 
 **Engineering**
@@ -190,14 +196,14 @@ The strategy is deliberate rather than uniform: unit-test the modules whose corr
 
 | Suite | Count | What it covers |
 | --- | --- | --- |
-| pytest | 115 | Auth, tenancy, upload, ingestion, indexing, search, RAG chat, preparation, aggregates, workspace settings, queue claims and sweep, rate limiting, row-level security, deletion, pagination |
+| pytest | 150 | Auth, tenancy, upload, ingestion, indexing, search, RAG chat, preparation, aggregates, workspace settings, queue claims and sweep, rate limiting, row-level security, deletion, pagination, chunking, rank fusion, eval scoring |
 | Vitest | 52 | `terminology.ts` (100%), `api/client.ts` (91%), `StatusBadge` (100%), `ConfirmDeleteDialog` |
 | Playwright | 1 flow | Signup → onboarding → upload → prepare → ask → sourced answer |
 
 Overall unit coverage is ~7% because components and hooks are not unit-tested. Inflating that number by testing presentational markup would cost real time and prove little; the flow those components participate in is covered by the end-to-end spec instead. The end-to-end test also asserts the negative case that matters most — that no API vocabulary or UUID ever reaches the screen.
 
 ```bash
-cd backend && pytest              # 106 tests; 9 more with Postgres, below
+cd backend && pytest              # 141 tests; 9 more with Postgres, below
 cd frontend && npm test           # 52 unit tests
 cd frontend && npm run test:e2e   # end-to-end (needs backend + OpenAI key)
 ```
@@ -207,6 +213,14 @@ The row-level security tests are the one exception to the no-database rule, beca
 ```bash
 RLS_TEST_DATABASE_URL=postgresql+psycopg://postgres:postgres@localhost:5433/rls_test pytest
 ```
+
+**Retrieval evaluation.** Separate from the test suite, because it needs a real database and makes paid API calls:
+
+```bash
+cd backend && python -m eval.run --label mine --compare eval/results/baseline.json
+```
+
+It indexes [a fixed corpus](backend/eval/corpus/) of 16 support documents, asks [57 fixed questions](backend/eval/questions.json), and reports recall@k, MRR, precision@k, and recall broken down by question kind. Stored runs live in `backend/eval/results/`, so any retrieval change can be compared against the baseline rather than argued about. Embeddings are cached by content hash — the first run costs a few cents, later ones nothing.
 
 **In CI:** [`ci.yml`](.github/workflows/ci.yml) runs backend tests plus frontend lint, typecheck, unit tests, and build on every push and pull request — no secrets and no paid API calls. It does run a Postgres service, solely so the row-level security tests execute; `REQUIRE_RLS_TESTS` makes a skip there a failure, since a skipped security test and a passing one look identical in a job summary.
 
