@@ -29,6 +29,8 @@ from app.rag.prompts import (
     GROUNDED_SUPPORT_SYSTEM_PROMPT,
     build_grounded_user_prompt,
 )
+from app.ingestion.chunking import chunk_document, chunk_text
+from app.repositories.document_chunk_repository import DocumentChunkRepository
 from eval.cache import CachingEmbeddingProvider
 from eval.harness import (
     index_corpus,
@@ -71,6 +73,18 @@ def main(argv: list[str] | None = None) -> int:
         "--with-answers",
         action="store_true",
         help="Also generate answers and check for expected phrases. Costs chat calls.",
+    )
+    parser.add_argument(
+        "--chunker",
+        choices=("window", "structured"),
+        default="structured",
+        help="Which chunking strategy to index with. 'window' is the original.",
+    )
+    parser.add_argument(
+        "--retrieval",
+        choices=("vector", "hybrid"),
+        default="vector",
+        help="Vector-only search, or vector fused with keyword search.",
     )
     parser.add_argument(
         "--compare",
@@ -116,13 +130,31 @@ def main(argv: list[str] | None = None) -> int:
     db = SessionLocal()
     indexed = None
     try:
-        indexed = index_corpus(db, embed_texts=provider.embed_texts, corpus=corpus)
+        indexed = index_corpus(
+            db,
+            embed_texts=provider.embed_texts,
+            corpus=corpus,
+            chunker=chunk_text if args.chunker == "window" else chunk_document,
+        )
+        repository = DocumentChunkRepository(db)
+        search = None
+        if args.retrieval == "hybrid":
+            def search(*, organization_id, knowledge_base_id, query_embedding, top_k, query_text):
+                return repository.hybrid_search(
+                    organization_id=organization_id,
+                    knowledge_base_id=knowledge_base_id,
+                    query_text=query_text,
+                    query_embedding=query_embedding,
+                    top_k=top_k,
+                )
+
         results = run_questions(
             db,
             indexed,
             questions,
             embed_query=provider.embed_query,
             top_k=args.top_k,
+            search=search,
             answerer=answerer,
         )
     finally:
@@ -142,7 +174,8 @@ def main(argv: list[str] | None = None) -> int:
             "chunk_size": settings.chunk_size,
             "chunk_overlap": settings.chunk_overlap,
             "top_k": args.top_k,
-            "retrieval": "vector-only",
+            "retrieval": args.retrieval,
+            "chunker": args.chunker,
             "python": platform.python_version(),
         },
         "corpus": {

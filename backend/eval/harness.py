@@ -192,7 +192,13 @@ def run_questions(
 ) -> list[QuestionResult]:
     """Ask every question and record which documents came back, in order."""
     repository = DocumentChunkRepository(db)
-    retrieve = search or repository.semantic_search
+
+    def vector_only(*, query_text: str, **kwargs):
+        # The question text is passed to every retriever so the harness has one
+        # calling convention; a vector search simply has no use for it.
+        return repository.semantic_search(**kwargs)
+
+    retrieve = search or vector_only
     results: list[QuestionResult] = []
 
     with organization_scope(str(indexed.organization_id)):
@@ -201,6 +207,7 @@ def run_questions(
                 organization_id=indexed.organization_id,
                 knowledge_base_id=indexed.knowledge_base_id,
                 query_embedding=embed_query(question.question),
+                query_text=question.question,
                 top_k=top_k,
             )
             # Document titles are the corpus slugs, which is what the question

@@ -15,7 +15,8 @@
     "",
     "An empty `expected_documents` means nothing in the corpus answers this.",
     "The right behaviour is to retrieve weakly and say so, and those cases are",
-    "scored separately as `unanswerable`."
+    "scored separately as `unanswerable`.",
+    "Added after the first hybrid run: 'literal' questions turn on a rare, specific token rather than on meaning. They are the case keyword search is supposed to win, and without them the set could only ever show hybrid retrieval doing nothing."
   ],
   "questions": [
     {
@@ -567,6 +568,72 @@
       "expected_documents": [],
       "expected_phrases": [],
       "kind": "unanswerable"
+    },
+    {
+      "id": "literal-ombudsman",
+      "question": "ombudsman",
+      "expected_documents": [
+        "support-contact"
+      ],
+      "expected_phrases": [
+        "ombudsman"
+      ],
+      "kind": "literal"
+    },
+    {
+      "id": "literal-kerbside",
+      "question": "kerbside drop point",
+      "expected_documents": [
+        "bulk-and-business-orders"
+      ],
+      "expected_phrases": [
+        "kerbside"
+      ],
+      "kind": "literal"
+    },
+    {
+      "id": "literal-sim-swapping",
+      "question": "SIM swapping",
+      "expected_documents": [
+        "account-security"
+      ],
+      "expected_phrases": [
+        "SIM"
+      ],
+      "kind": "literal"
+    },
+    {
+      "id": "literal-lint-free",
+      "question": "lint-free cloth",
+      "expected_documents": [
+        "product-care"
+      ],
+      "expected_phrases": [
+        "lint-free"
+      ],
+      "kind": "literal"
+    },
+    {
+      "id": "literal-tsvector-amount",
+      "question": "\u00a3150 signature",
+      "expected_documents": [
+        "delivery-problems"
+      ],
+      "expected_phrases": [
+        "150"
+      ],
+      "kind": "literal"
+    },
+    {
+      "id": "literal-pallet",
+      "question": "pallet delivery",
+      "expected_documents": [
+        "bulk-and-business-orders"
+      ],
+      "expected_phrases": [
+        "pallet"
+      ],
+      "kind": "literal"
     }
   ]
 }

@@ -45,9 +45,10 @@ class SearchService:
                 f"received {len(query_embedding)}"
             )
 
-        matches = self.chunks.semantic_search(
+        matches = self.chunks.hybrid_search(
             organization_id=organization_id,
             knowledge_base_id=knowledge_base_id,
+            query_text=data.query,
             query_embedding=query_embedding,
             top_k=data.top_k,
         )
