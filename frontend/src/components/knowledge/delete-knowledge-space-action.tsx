@@ -44,6 +44,7 @@ export function DeleteKnowledgeSpaceAction({
       // The document list is keyed by knowledge space, and the "all" list
       // still holds rows that no longer exist.
       await queryClient.invalidateQueries({ queryKey: ["documents"] });
+      await queryClient.invalidateQueries({ queryKey: ["documents-summary"] });
       if (redirectTo) {
         router.push(redirectTo);
       }

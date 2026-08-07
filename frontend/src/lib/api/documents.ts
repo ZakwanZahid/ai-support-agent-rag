@@ -1,5 +1,6 @@
 import type { UUID } from "@/types/api";
 import type {
+  DocumentPage,
   DocumentSourceType,
   DocumentStatus,
   DocumentTaskAccepted,
@@ -19,15 +20,43 @@ function organizationPath(organizationId: UUID): string {
   return `/api/v1/organizations/${encodeURIComponent(organizationId)}`;
 }
 
+export interface ListDocumentsQuery {
+  knowledgeBaseId?: UUID | null;
+  /** Matched against the title, in the database rather than the browser. */
+  search?: string | null;
+  /** Raw API statuses. `terminology.ts` maps the product's filters onto these. */
+  statuses?: readonly DocumentStatus[];
+  limit?: number;
+  /** Opaque cursor from a previous page. Never built by hand. */
+  cursor?: string | null;
+}
+
 export async function listDocuments(
   organizationId: UUID,
-  knowledgeBaseId?: UUID | null,
-): Promise<DocumentResponse[]> {
-  const response = await apiClient.get<DocumentResponse[]>(
+  query: ListDocumentsQuery = {},
+): Promise<DocumentPage> {
+  const params = new URLSearchParams();
+  if (query.knowledgeBaseId) {
+    params.set("knowledge_base_id", query.knowledgeBaseId);
+  }
+  if (query.search?.trim()) {
+    params.set("q", query.search.trim());
+  }
+  // Repeated rather than comma-joined: one product filter can cover several
+  // API statuses, and FastAPI reads repeats into a list.
+  for (const status of query.statuses ?? []) {
+    params.append("status", status);
+  }
+  if (query.limit) {
+    params.set("limit", String(query.limit));
+  }
+  if (query.cursor) {
+    params.set("cursor", query.cursor);
+  }
+
+  const response = await apiClient.get<DocumentPage>(
     `${organizationPath(organizationId)}/documents`,
-    {
-      params: knowledgeBaseId ? { knowledge_base_id: knowledgeBaseId } : undefined,
-    },
+    { params },
   );
   return response.data;
 }

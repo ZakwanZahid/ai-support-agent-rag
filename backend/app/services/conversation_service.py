@@ -2,11 +2,12 @@ import uuid
 
 from sqlalchemy.orm import Session
 
-from app.models.conversation import Conversation
+from app.models.conversation import Conversation, Message
 from app.models.organization import OrganizationMember
 from app.models.user import User
 from app.repositories.conversation_repository import ConversationRepository
 from app.repositories.knowledge_base_repository import KnowledgeBaseRepository
+from app.repositories.message_repository import MessageRepository
 from app.schemas.conversation import (
     MESSAGE_PREVIEW_MAX_CHARS,
     CitationResponse,
@@ -15,6 +16,46 @@ from app.schemas.conversation import (
     ConversationResponse,
     MessageResponse,
 )
+from app.schemas.pagination import Page, decode_cursor, encode_cursor
+
+
+# One page covers a normal support conversation end to end, so most threads
+# never ask for a second.
+DEFAULT_MESSAGE_PAGE_SIZE = 50
+
+
+def _to_message_response(message: Message) -> MessageResponse:
+    return MessageResponse(
+        id=message.id,
+        organization_id=message.organization_id,
+        conversation_id=message.conversation_id,
+        role=message.role,
+        content=message.content,
+        created_at=message.created_at,
+        citations=[
+            CitationResponse(
+                document_id=citation.document_id,
+                document_title=citation.document.title,
+                chunk_id=citation.chunk_id,
+                quote=citation.quote or "",
+                score=citation.score if citation.score is not None else 0.0,
+                chunk_metadata=citation.chunk.chunk_metadata,
+            )
+            for citation in message.citations
+        ],
+    )
+
+
+def _older_than_cursor(messages: list[Message]) -> str | None:
+    """A cursor pointing just before the oldest message on this page.
+
+    The page is returned oldest-first for reading, so the boundary for
+    "load earlier" is its first element, not its last.
+    """
+    if not messages:
+        return None
+    oldest = messages[0]
+    return encode_cursor(oldest.created_at, oldest.id)
 
 
 def _preview(content: str | None) -> str | None:
@@ -44,6 +85,7 @@ class ConversationService:
         self.db = db
         self.conversations = ConversationRepository(db)
         self.knowledge_bases = KnowledgeBaseRepository(db)
+        self.messages = MessageRepository(db)
 
     def create(
         self,
@@ -97,11 +139,13 @@ class ConversationService:
         conversation_id: uuid.UUID,
         user: User,
         membership: OrganizationMember,
+        message_limit: int = DEFAULT_MESSAGE_PAGE_SIZE,
     ) -> ConversationDetailResponse:
+        # Without `with_messages`: the messages come from a paged query below,
+        # and eagerly loading the whole collection here would defeat the point.
         conversation = self.conversations.get_by_id(
             organization_id=organization_id,
             conversation_id=conversation_id,
-            with_messages=True,
         )
         if conversation is None:
             raise ConversationNotFoundError
@@ -109,6 +153,12 @@ class ConversationService:
             conversation=conversation,
             user=user,
             membership=membership,
+        )
+
+        messages, has_more = self.messages.list_page(
+            organization_id=organization_id,
+            conversation_id=conversation_id,
+            limit=message_limit,
         )
         return ConversationDetailResponse(
             id=conversation.id,
@@ -118,32 +168,44 @@ class ConversationService:
             title=conversation.title,
             created_at=conversation.created_at,
             updated_at=conversation.updated_at,
-            messages=[
-                MessageResponse(
-                    id=message.id,
-                    organization_id=message.organization_id,
-                    conversation_id=message.conversation_id,
-                    role=message.role,
-                    content=message.content,
-                    created_at=message.created_at,
-                    citations=[
-                        CitationResponse(
-                            document_id=citation.document_id,
-                            document_title=citation.document.title,
-                            chunk_id=citation.chunk_id,
-                            quote=citation.quote or "",
-                            score=(
-                                citation.score
-                                if citation.score is not None
-                                else 0.0
-                            ),
-                            chunk_metadata=citation.chunk.chunk_metadata,
-                        )
-                        for citation in message.citations
-                    ],
-                )
-                for message in conversation.messages
-            ],
+            messages=[_to_message_response(message) for message in messages],
+            has_more_messages=has_more,
+            next_message_cursor=_older_than_cursor(messages) if has_more else None,
+        )
+
+    def list_messages(
+        self,
+        *,
+        organization_id: uuid.UUID,
+        conversation_id: uuid.UUID,
+        user: User,
+        membership: OrganizationMember,
+        limit: int = DEFAULT_MESSAGE_PAGE_SIZE,
+        cursor: str | None = None,
+    ) -> Page[MessageResponse]:
+        """Older messages in a thread, for "load earlier"."""
+        conversation = self.conversations.get_by_id(
+            organization_id=organization_id,
+            conversation_id=conversation_id,
+        )
+        if conversation is None:
+            raise ConversationNotFoundError
+        self.ensure_access(
+            conversation=conversation,
+            user=user,
+            membership=membership,
+        )
+
+        messages, has_more = self.messages.list_page(
+            organization_id=organization_id,
+            conversation_id=conversation_id,
+            limit=limit,
+            before=decode_cursor(cursor) if cursor else None,
+        )
+        return Page[MessageResponse](
+            items=[_to_message_response(message) for message in messages],
+            has_more=has_more,
+            next_cursor=_older_than_cursor(messages) if has_more else None,
         )
 
     @staticmethod

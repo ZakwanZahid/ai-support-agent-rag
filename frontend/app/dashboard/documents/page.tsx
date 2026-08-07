@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { FileText, Search } from "lucide-react";
+import { FileText, LoaderCircle, Search } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 
@@ -13,43 +13,48 @@ import { DocumentMobileCard } from "@/components/documents/document-mobile-card"
 import { DocumentTable } from "@/components/documents/document-table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { useDocuments } from "@/hooks/use-documents";
 import { useWorkspace } from "@/hooks/use-workspace";
 import { listKnowledgeBases } from "@/lib/api/knowledge-bases";
 import { queryKeys } from "@/lib/query-keys";
 import {
-  hasDocumentFailed,
-  isDocumentInProgress,
-  isDocumentReady,
+  DOCUMENT_FILTERS,
+  type DocumentFilterKey,
+  documentFilterCount,
+  documentFilterStatuses,
 } from "@/lib/terminology";
 import { cn } from "@/lib/utils";
-
-const FILTERS = [
-  { key: "all", label: "All" },
-  { key: "ready", label: "Ready" },
-  { key: "processing", label: "Processing" },
-  { key: "failed", label: "Failed" },
-] as const;
-
-type FilterKey = (typeof FILTERS)[number]["key"];
 
 export default function DocumentsPage() {
   const { activeWorkspace } = useWorkspace();
   const workspaceId = activeWorkspace?.id ?? null;
 
-  const [filter, setFilter] = useState<FilterKey>("all");
+  const [filter, setFilter] = useState<DocumentFilterKey>("all");
   const [search, setSearch] = useState("");
+  // The request follows the search, one step behind the keyboard.
+  const debouncedSearch = useDebouncedValue(search);
+
+  const statuses = useMemo(() => documentFilterStatuses(filter), [filter]);
 
   const {
     documents,
+    statusCounts,
     isLoading,
     isError,
     refetch,
+    hasMore,
+    loadMore,
+    isLoadingMore,
     prepare,
     preparingDocumentId,
     remove,
     deletingDocumentId,
-  } = useDocuments({ workspaceId });
+  } = useDocuments({
+    workspaceId,
+    search: debouncedSearch,
+    statuses,
+  });
 
   const knowledgeSpacesQuery = useQuery({
     queryKey: queryKeys.knowledgeBases(workspaceId),
@@ -65,39 +70,10 @@ export default function DocumentsPage() {
     [knowledgeSpacesQuery.data],
   );
 
-  const visibleDocuments = useMemo(() => {
-    const term = search.trim().toLowerCase();
-
-    return documents.filter((document) => {
-      const matchesFilter =
-        filter === "all" ||
-        (filter === "ready" && isDocumentReady(document.status)) ||
-        (filter === "processing" && isDocumentInProgress(document.status)) ||
-        (filter === "failed" && hasDocumentFailed(document.status));
-
-      if (!matchesFilter) return false;
-      if (!term) return true;
-
-      // Search covers the knowledge space name too, since that is often how
-      // people remember where a document lives.
-      const spaceName =
-        knowledgeSpaceNames.get(document.knowledge_base_id) ?? "";
-      return (
-        document.title.toLowerCase().includes(term) ||
-        spaceName.toLowerCase().includes(term)
-      );
-    });
-  }, [documents, filter, knowledgeSpaceNames, search]);
-
-  const counts = useMemo(
-    () => ({
-      all: documents.length,
-      ready: documents.filter((d) => isDocumentReady(d.status)).length,
-      processing: documents.filter((d) => isDocumentInProgress(d.status)).length,
-      failed: documents.filter((d) => hasDocumentFailed(d.status)).length,
-    }),
-    [documents],
-  );
+  const isFiltered = Boolean(debouncedSearch.trim()) || filter !== "all";
+  // Distinguishes "nothing uploaded" from "nothing matches": the same empty
+  // list means two different things, and only one of them is a dead end.
+  const totalDocuments = documentFilterCount("all", statusCounts);
 
   return (
     <div className="space-y-7">
@@ -111,23 +87,10 @@ export default function DocumentsPage() {
         }
       />
 
-      {isLoading ? (
-        <LoadingSkeleton rows={4} />
-      ) : isError ? (
+      {isError ? (
         <ErrorState
           title="We couldn’t load your documents"
           onRetry={() => void refetch()}
-        />
-      ) : documents.length === 0 ? (
-        <EmptyState
-          icon={FileText}
-          title="No documents uploaded yet"
-          description="Add PDFs, FAQs, policies, or product docs to prepare your assistant."
-          action={
-            <Button asChild>
-              <Link href="/dashboard/knowledge">Upload document</Link>
-            </Button>
-          }
         />
       ) : (
         <>
@@ -137,7 +100,7 @@ export default function DocumentsPage() {
               aria-label="Filter by status"
               className="flex flex-wrap gap-1.5"
             >
-              {FILTERS.map(({ key, label }) => (
+              {DOCUMENT_FILTERS.map(({ key, label }) => (
                 <button
                   key={key}
                   type="button"
@@ -151,7 +114,9 @@ export default function DocumentsPage() {
                   )}
                 >
                   {label}
-                  <span className="ml-1.5 opacity-70">{counts[key]}</span>
+                  <span className="ml-1.5 opacity-70">
+                    {documentFilterCount(key, statusCounts)}
+                  </span>
                 </button>
               ))}
             </div>
@@ -172,24 +137,39 @@ export default function DocumentsPage() {
             </div>
           </div>
 
-          {visibleDocuments.length === 0 ? (
-            <EmptyState
-              compact
-              icon={Search}
-              title="No matching documents"
-              description="Try a different search term or filter."
-              action={
-                <Button
-                  variant="secondary"
-                  onClick={() => {
-                    setSearch("");
-                    setFilter("all");
-                  }}
-                >
-                  Clear filters
-                </Button>
-              }
-            />
+          {isLoading ? (
+            <LoadingSkeleton rows={4} />
+          ) : documents.length === 0 ? (
+            isFiltered ? (
+              <EmptyState
+                compact
+                icon={Search}
+                title="No matching documents"
+                description="Try a different search term or filter."
+                action={
+                  <Button
+                    variant="secondary"
+                    onClick={() => {
+                      setSearch("");
+                      setFilter("all");
+                    }}
+                  >
+                    Clear filters
+                  </Button>
+                }
+              />
+            ) : (
+              <EmptyState
+                icon={FileText}
+                title="No documents uploaded yet"
+                description="Add PDFs, FAQs, policies, or product docs to prepare your assistant."
+                action={
+                  <Button asChild>
+                    <Link href="/dashboard/knowledge">Upload document</Link>
+                  </Button>
+                }
+              />
+            )
           ) : (
             <>
               {/*
@@ -199,7 +179,7 @@ export default function DocumentsPage() {
               */}
               <div className="hidden xl:block">
                 <DocumentTable
-                  documents={visibleDocuments}
+                  documents={documents}
                   knowledgeSpaceNames={knowledgeSpaceNames}
                   onPrepare={prepare}
                   preparingDocumentId={preparingDocumentId}
@@ -209,7 +189,7 @@ export default function DocumentsPage() {
               </div>
 
               <ul className="grid gap-3 xl:hidden">
-                {visibleDocuments.map((document) => (
+                {documents.map((document) => (
                   <DocumentMobileCard
                     key={document.id}
                     document={document}
@@ -223,6 +203,24 @@ export default function DocumentsPage() {
                   />
                 ))}
               </ul>
+
+              {hasMore ? (
+                <div className="flex flex-col items-center gap-2">
+                  <Button
+                    variant="secondary"
+                    disabled={isLoadingMore}
+                    onClick={loadMore}
+                  >
+                    {isLoadingMore ? (
+                      <LoaderCircle aria-hidden="true" className="animate-spin" />
+                    ) : null}
+                    Load more documents
+                  </Button>
+                  <p className="text-xs text-foreground-subtle">
+                    Showing {documents.length} of {totalDocuments}
+                  </p>
+                </div>
+              ) : null}
             </>
           )}
         </>

@@ -1,7 +1,7 @@
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.api.deps import (
@@ -23,7 +23,9 @@ from app.schemas.conversation import (
     ConversationCreate,
     ConversationDetailResponse,
     ConversationResponse,
+    MessageResponse,
 )
+from app.schemas.pagination import InvalidCursorError, Page
 from app.services.conversation_service import (
     ConversationAccessDeniedError,
     ConversationKnowledgeBaseNotFoundError,
@@ -102,6 +104,7 @@ def get_conversation(
         OrganizationMember,
         Depends(require_organization_member),
     ],
+    message_limit: Annotated[int, Query(ge=1, le=100)] = 50,
 ) -> ConversationDetailResponse:
     try:
         return ConversationService(db).get_detail(
@@ -109,6 +112,7 @@ def get_conversation(
             conversation_id=conversation_id,
             user=current_user,
             membership=membership,
+            message_limit=message_limit,
         )
     except ConversationNotFoundError:
         raise HTTPException(
@@ -184,4 +188,49 @@ def send_chat_message(
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail=str(exc),
+        )
+
+
+@router.get("/{conversation_id}/messages", response_model=Page[MessageResponse])
+def list_conversation_messages(
+    organization_id: uuid.UUID,
+    conversation_id: uuid.UUID,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+    membership: Annotated[
+        OrganizationMember,
+        Depends(require_organization_member),
+    ],
+    limit: Annotated[int, Query(ge=1, le=100)] = 50,
+    cursor: Annotated[str | None, Query()] = None,
+) -> Page[MessageResponse]:
+    """Older messages in a thread.
+
+    The conversation detail endpoint already returns the newest page; this
+    walks backwards from a cursor it hands out. Without a cursor it returns
+    that same newest page, so a client can use one endpoint throughout.
+    """
+    try:
+        return ConversationService(db).list_messages(
+            organization_id=organization_id,
+            conversation_id=conversation_id,
+            user=current_user,
+            membership=membership,
+            limit=limit,
+            cursor=cursor,
+        )
+    except ConversationNotFoundError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Conversation not found",
+        )
+    except ConversationAccessDeniedError:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You cannot access this conversation",
+        )
+    except InvalidCursorError:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Invalid pagination cursor",
         )

@@ -6,7 +6,9 @@ import { listConversations } from "@/lib/api/conversations";
 import { listDocuments } from "@/lib/api/documents";
 import { listKnowledgeBases } from "@/lib/api/knowledge-bases";
 import { queryKeys } from "@/lib/query-keys";
-import { isDocumentReady } from "@/lib/terminology";
+import { documentFilterCount, isDocumentReady } from "@/lib/terminology";
+
+const RECENT_LIMIT = 5;
 
 /**
  * Everything the dashboard renders, gathered in one place so the page stays
@@ -22,9 +24,12 @@ export function useDashboardData(workspaceId: string | null) {
     enabled,
   });
 
+  // Only the five rows the dashboard shows. The totals beside them come from
+  // the page's own status counts, which describe the whole collection — so
+  // the summary stays right without fetching every document to count it.
   const documentsQuery = useQuery({
-    queryKey: queryKeys.documents(workspaceId),
-    queryFn: () => listDocuments(workspaceId!),
+    queryKey: queryKeys.documentsSummary(workspaceId),
+    queryFn: () => listDocuments(workspaceId!, { limit: RECENT_LIMIT }),
     enabled,
   });
 
@@ -35,8 +40,9 @@ export function useDashboardData(workspaceId: string | null) {
   });
 
   const knowledgeSpaces = knowledgeSpacesQuery.data ?? [];
-  const documents = documentsQuery.data ?? [];
+  const documents = documentsQuery.data?.items ?? [];
   const chatThreads = chatThreadsQuery.data ?? [];
+  const statusCounts = documentsQuery.data?.status_counts ?? {};
 
   const readyDocuments = documents.filter((document) =>
     isDocumentReady(document.status),
@@ -49,13 +55,13 @@ export function useDashboardData(workspaceId: string | null) {
     readyDocuments,
     stats: {
       knowledgeSpaces: knowledgeSpaces.length,
-      documents: documents.length,
-      readyDocuments: readyDocuments.length,
+      documents: documentFilterCount("all", statusCounts),
+      readyDocuments: documentFilterCount("ready", statusCounts),
       chatThreads: chatThreads.length,
     },
     // The API returns documents newest first and conversations by most
     // recently updated, so the first few are already the right ones.
-    recentDocuments: documents.slice(0, 5),
+    recentDocuments: documents,
     recentChatThreads: chatThreads.slice(0, 5),
     isLoading:
       knowledgeSpacesQuery.isPending ||

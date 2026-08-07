@@ -1,7 +1,9 @@
 import uuid
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
+
+from app.schemas.pagination import Page
 
 
 class DocumentResponse(BaseModel):
@@ -19,6 +21,17 @@ class DocumentResponse(BaseModel):
     error_message: str | None
     created_at: datetime
     updated_at: datetime
+
+
+class DocumentPage(Page[DocumentResponse]):
+    """A page of documents, plus the numbers on the filter controls.
+
+    The counts ride along rather than living behind their own endpoint: they
+    describe the same filtered set the page came from, and fetching them
+    separately would let the two drift apart between requests.
+    """
+
+    status_counts: dict[str, int] = Field(default_factory=dict)
 
 
 class IngestionScheduledResponse(BaseModel):

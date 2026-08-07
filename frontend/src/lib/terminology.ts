@@ -175,3 +175,50 @@ export const TERMS = {
 
 /** The one action users see instead of separate ingest and index steps. */
 export const PREPARE_ACTION_LABEL = "Prepare for chat";
+
+/**
+ * The document filters users see, and the API statuses each one covers.
+ *
+ * Filtering moved to the server, which means the request has to name raw API
+ * statuses. That mapping belongs here rather than in the page: this module is
+ * the one place allowed to know both vocabularies, and "Processing" covering
+ * two backend statuses is exactly the kind of detail a page should not carry.
+ */
+export const DOCUMENT_FILTERS = [
+  { key: "all", label: "All", statuses: [] },
+  { key: "ready", label: "Ready", statuses: ["indexed"] },
+  { key: "processing", label: "Processing", statuses: ["processing", "processed"] },
+  { key: "failed", label: "Failed", statuses: ["failed"] },
+] as const satisfies ReadonlyArray<{
+  key: string;
+  label: string;
+  statuses: readonly DocumentStatus[];
+}>;
+
+export type DocumentFilterKey = (typeof DOCUMENT_FILTERS)[number]["key"];
+
+export function documentFilterStatuses(
+  key: DocumentFilterKey,
+): readonly DocumentStatus[] {
+  return (
+    DOCUMENT_FILTERS.find((filter) => filter.key === key)?.statuses ?? []
+  );
+}
+
+/**
+ * How many documents a filter would show, from the server's per-status counts.
+ *
+ * "All" sums every status rather than being sent as its own count, so one
+ * grouped query on the server answers every chip.
+ */
+export function documentFilterCount(
+  key: DocumentFilterKey,
+  counts: Partial<Record<DocumentStatus, number>>,
+): number {
+  const statuses = documentFilterStatuses(key);
+  const relevant =
+    statuses.length > 0
+      ? statuses
+      : (Object.keys(counts) as DocumentStatus[]);
+  return relevant.reduce((total, status) => total + (counts[status] ?? 0), 0);
+}

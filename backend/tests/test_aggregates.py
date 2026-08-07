@@ -64,7 +64,7 @@ def test_knowledge_base_list_reports_document_counts(client: TestClient) -> None
     documents = client.get(
         f"/api/v1/organizations/{organization['id']}/documents",
         headers=auth_headers(token),
-    ).json()
+    ).json()["items"]
     client.post(
         f"/api/v1/organizations/{organization['id']}/documents/{documents[0]['id']}/prepare",
         headers=auth_headers(token),
