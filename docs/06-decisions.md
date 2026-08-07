@@ -289,3 +289,33 @@ What this gives up is jumping to page seven and knowing how many pages exist. Ne
 Directions differ because reading directions differ. Documents page forwards from newest. A thread returns its most recent page and walks backwards, because opening a conversation should show its end.
 
 Implementing this surfaced a real ordering bug. `created_at` came only from `server_default=func.now()`, which renders as the backend's own timestamp function: Postgres gives microseconds, SQLite's `CURRENT_TIMESTAMP` gives whole seconds and stores them as text. Whole seconds mean rows written in the same second tie, and text storage means a stored `...:32` compares against a bound `...:32.000000` as a shorter string rather than an equal instant — so the cursor matched every row and pages repeated forever. Timestamps are now set application-side as well, which makes stored and compared representations the same one.
+
+## ADR-042: Measure Retrieval Before Changing It
+
+Status: Accepted
+
+Every retrieval change in this phase was gated on an evaluation harness written first. Without one, "better chunking" and "hybrid search" are opinions with plausible reasoning attached, and the reasoning is plausible for changes that turn out to help, do nothing, and actively hurt alike — as all three did here.
+
+The harness indexes a fixed corpus of sixteen support documents, asks fifty-seven fixed questions, and records which documents came back. It drives the production chunker, the production embedding provider, and the production search method; an eval that measures its own copy of the pipeline measures nothing. It skips only HTTP and file upload, which do not vary between runs.
+
+**Scoring is on documents, not chunks.** Chunk size is one of the things being tuned, so counting chunk hits would make a smaller chunk size look like better retrieval. **Grading is on sources, not answer text.** Judging generated prose needs a second model to do the judging, and its verdicts move with the chat model rather than with retrieval — the thing being measured. An optional pass does check that expected facts survive into the answer, deliberately as a crude substring test rather than a pretence at grading. **Questions are tagged by kind** — direct, paraphrase, inference, cross-document, literal, unanswerable — because a single average hides the case that matters: a change which helps lookups and hurts paraphrases leaves the headline number flat. **Unanswerable questions are scored separately**, since recall is undefined when no document is correct; returning 0 would penalise correct behaviour and returning 1 would reward retrieving anything.
+
+Embeddings are cached by content hash, so a re-run costs nothing and only changed text is paid for. This is not a convenience: an eval that costs money on every run is an eval that stops being run. It is not part of `pytest` for the same reason `e2e.yml` is manual — it needs real Postgres and a paid key. Its scoring arithmetic *is* unit-tested there, because a metric that miscounts is worse than no metric: the numbers get believed.
+
+The first version of the corpus scored a meaningless recall of 1.0000 — six documents, one chunk each, retrieving five of six. A harness that cannot fail cannot measure improvement, and noticing that is the reason the corpus was rebuilt before any retrieval work started.
+
+## ADR-043: Structure-Aware Chunking, and Hybrid Retrieval to Pay for It
+
+Status: Accepted
+
+Chunking now splits on markdown headings rather than on a character count, and each chunk is prefixed with its heading path. Retrieval fuses vector search with Postgres full-text search by reciprocal rank.
+
+**Why split on structure.** A fixed window splits wherever the count runs out, mid-sentence and mid-topic. Worse, at a window larger than the document it produces one chunk holding everything, so a single embedding stands for every topic the document covers — sixteen corpus documents produced seventeen chunks. "When do you charge for a pre-order?" wants the pre-order paragraph, not a vector averaging the whole stock policy. The heading prefix costs a few tokens and buys context: "Charged at dispatch, not at the time of ordering" is ambiguous alone and unambiguous under "Stock and availability › Pre-orders". Sections too long for one chunk still fall back to the character window, and sections too short to answer anything are merged into a neighbour.
+
+**Why fuse rather than normalise.** A cosine distance and a `ts_rank` are different units on different scales, and `ts_rank` is unbounded. Putting them on a common scale means inventing a conversion, and that conversion would be the thing quietly deciding results. Reciprocal rank fusion discards the scores and keeps only positions, so a chunk ranked second by both retrievers beats one ranked first by a single retriever and missing from the other — agreement between two methods being better evidence than a strong score from one. Each retriever is asked for more candidates than the final `top_k`, or fusion could only ever reorder what vector search already found.
+
+**What the measurements actually said.** Structure-aware chunking raised precision from 0.219 to 0.343 and fixed an inference failure — *and broke two literal-token questions*, because a rare word now sits in a small chunk whose embedding is dominated by the rest of its section. Hybrid retrieval, measured on its own against the first question set, changed recall and precision not at all and cost MRR. It earns its place only alongside the chunking change, where it repairs precisely that regression. Neither change is right by itself, which is not what either was expected to show.
+
+Final against baseline: recall@k 0.9528 → 0.9811, precision@k 0.2189 → 0.3283, hit rate 0.9623 → 0.9811, MRR 0.8899 → 0.8805. The MRR cost is accepted knowingly: more chunks compete for rank one, and everything retrieved reaches the model anyway, so recall is worth more than rank here.
+
+The full-text column is `GENERATED ALWAYS AS ... STORED` so Postgres maintains it; a trigger or an application write is one more thing to forget on an update path. It uses the `english` configuration, which is a limitation to name rather than hide — a non-English corpus needs a different one. Citations are deduplicated to one entry per document, because several chunks of one source became a common result once sections were chunked separately and listing them read as several sources; the context the model answers from still receives every chunk.

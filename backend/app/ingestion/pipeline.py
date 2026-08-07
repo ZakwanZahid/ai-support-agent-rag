@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.core.storage import resolve_storage_path
 from app.db.session import SessionLocal
-from app.ingestion.chunking import TextChunk, chunk_text
+from app.ingestion.chunking import TextChunk, chunk_document
 from app.ingestion.loaders import (
     ExtractedSection,
     TextExtractionError,
@@ -108,7 +108,7 @@ def _chunk_extracted_document(
     all_chunks: list[TextChunk] = []
     for section in sections:
         section_metadata = {**section.metadata, "source": source}
-        section_chunks = chunk_text(
+        section_chunks = chunk_document(
             text=section.text,
             chunk_size=settings.chunk_size,
             chunk_overlap=settings.chunk_overlap,

@@ -1,6 +1,6 @@
 {
-  "label": "baseline",
-  "recorded_at": "2026-08-07T21:17:13.970577+00:00",
+  "label": "structured-chunking",
+  "recorded_at": "2026-08-07T21:17:20.096913+00:00",
   "git_revision": "7ff095e",
   "config": {
     "embedding_model": "text-embedding-3-small",
@@ -9,55 +9,56 @@
     "chunk_overlap": 200,
     "top_k": 5,
     "retrieval": "vector",
-    "chunker": "window",
+    "chunker": "structured",
     "python": "3.12.10"
   },
   "corpus": {
     "documents": 16,
-    "chunks": 17,
+    "chunks": 29,
     "chunks_per_document": {
       "account-security": 1,
       "billing-and-invoices": 1,
       "bulk-and-business-orders": 1,
-      "cancellations": 2,
-      "damaged-and-missing-items": 1,
-      "data-and-privacy": 1,
-      "delivery-problems": 1,
-      "gift-orders": 1,
+      "cancellations": 4,
+      "damaged-and-missing-items": 3,
+      "data-and-privacy": 2,
+      "delivery-problems": 2,
+      "gift-orders": 3,
       "pricing-and-discounts": 1,
-      "product-care": 1,
-      "refund-policy": 1,
-      "returns-and-exchanges": 1,
+      "product-care": 2,
+      "refund-policy": 2,
+      "returns-and-exchanges": 2,
       "shipping": 1,
       "stock-and-availability": 1,
-      "support-contact": 1,
+      "support-contact": 2,
       "warranty": 1
     }
   },
   "summary": {
     "answerable": 53,
     "unanswerable": 4,
-    "recall_at_k": 0.9528,
-    "mrr": 0.8899,
-    "precision_at_k": 0.2189,
-    "hit_rate": 0.9623,
+    "recall_at_k": 0.934,
+    "mrr": 0.8553,
+    "precision_at_k": 0.3434,
+    "hit_rate": 0.9434,
     "by_kind": {
       "cross-document": 0.9,
       "direct": 1.0,
-      "inference": 0.8571,
-      "literal": 1.0,
+      "inference": 0.9286,
+      "literal": 0.6667,
       "paraphrase": 1.0
     },
     "failures": [
-      "failed-payment",
-      "price-dropped-after-buying"
+      "price-dropped-after-buying",
+      "literal-kerbside",
+      "literal-pallet"
     ],
     "phrase_failures": [],
     "unanswerable_top_scores": [
-      0.44,
-      0.2287,
-      0.2972,
-      0.1926
+      0.4165,
+      0.2193,
+      0.2846,
+      0.1935
     ]
   },
   "per_question": [
@@ -69,12 +70,12 @@
       ],
       "retrieved": [
         "refund-policy",
+        "refund-policy",
         "cancellations",
-        "support-contact",
-        "returns-and-exchanges",
-        "warranty"
+        "gift-orders",
+        "support-contact"
       ],
-      "top_score": 0.5371,
+      "top_score": 0.5796,
       "missing_phrases": []
     },
     {
@@ -85,12 +86,12 @@
       ],
       "retrieved": [
         "refund-policy",
+        "refund-policy",
+        "gift-orders",
         "cancellations",
-        "support-contact",
-        "returns-and-exchanges",
-        "damaged-and-missing-items"
+        "cancellations"
       ],
-      "top_score": 0.4761,
+      "top_score": 0.5501,
       "missing_phrases": []
     },
     {
@@ -100,13 +101,13 @@
         "refund-policy"
       ],
       "retrieved": [
-        "refund-policy",
         "gift-orders",
-        "returns-and-exchanges",
-        "cancellations",
-        "damaged-and-missing-items"
+        "gift-orders",
+        "refund-policy",
+        "refund-policy",
+        "returns-and-exchanges"
       ],
-      "top_score": 0.4468,
+      "top_score": 0.5757,
       "missing_phrases": []
     },
     {
@@ -118,11 +119,11 @@
       "retrieved": [
         "shipping",
         "delivery-problems",
+        "cancellations",
         "refund-policy",
-        "support-contact",
-        "damaged-and-missing-items"
+        "refund-policy"
       ],
-      "top_score": 0.4721,
+      "top_score": 0.5033,
       "missing_phrases": []
     },
     {
@@ -132,13 +133,13 @@
         "shipping"
       ],
       "retrieved": [
-        "shipping",
-        "delivery-problems",
+        "gift-orders",
         "returns-and-exchanges",
-        "pricing-and-discounts",
-        "gift-orders"
+        "shipping",
+        "cancellations",
+        "delivery-problems"
       ],
-      "top_score": 0.2851,
+      "top_score": 0.3544,
       "missing_phrases": []
     },
     {
@@ -150,11 +151,11 @@
       "retrieved": [
         "shipping",
         "delivery-problems",
-        "damaged-and-missing-items",
-        "pricing-and-discounts",
-        "bulk-and-business-orders"
+        "delivery-problems",
+        "gift-orders",
+        "cancellations"
       ],
-      "top_score": 0.3392,
+      "top_score": 0.335,
       "missing_phrases": []
     },
     {
@@ -165,12 +166,12 @@
       ],
       "retrieved": [
         "returns-and-exchanges",
-        "refund-policy",
         "cancellations",
-        "delivery-problems",
-        "cancellations"
+        "refund-policy",
+        "returns-and-exchanges",
+        "gift-orders"
       ],
-      "top_score": 0.4465,
+      "top_score": 0.5321,
       "missing_phrases": []
     },
     {
@@ -181,12 +182,12 @@
       ],
       "retrieved": [
         "returns-and-exchanges",
-        "refund-policy",
-        "warranty",
         "cancellations",
-        "support-contact"
+        "returns-and-exchanges",
+        "refund-policy",
+        "delivery-problems"
       ],
-      "top_score": 0.2465,
+      "top_score": 0.3131,
       "missing_phrases": []
     },
     {
@@ -198,11 +199,11 @@
       "retrieved": [
         "account-security",
         "data-and-privacy",
-        "pricing-and-discounts",
-        "delivery-problems",
-        "billing-and-invoices"
+        "bulk-and-business-orders",
+        "billing-and-invoices",
+        "delivery-problems"
       ],
-      "top_score": 0.5014,
+      "top_score": 0.5143,
       "missing_phrases": []
     },
     {
@@ -215,10 +216,10 @@
         "account-security",
         "support-contact",
         "gift-orders",
-        "cancellations",
-        "pricing-and-discounts"
+        "pricing-and-discounts",
+        "data-and-privacy"
       ],
-      "top_score": 0.4137,
+      "top_score": 0.4566,
       "missing_phrases": []
     },
     {
@@ -230,11 +231,11 @@
       "retrieved": [
         "account-security",
         "delivery-problems",
-        "cancellations",
-        "damaged-and-missing-items",
-        "support-contact"
+        "delivery-problems",
+        "support-contact",
+        "billing-and-invoices"
       ],
-      "top_score": 0.4077,
+      "top_score": 0.445,
       "missing_phrases": []
     },
     {
@@ -246,11 +247,11 @@
       "retrieved": [
         "billing-and-invoices",
         "data-and-privacy",
-        "gift-orders",
         "refund-policy",
-        "returns-and-exchanges"
+        "returns-and-exchanges",
+        "gift-orders"
       ],
-      "top_score": 0.2754,
+      "top_score": 0.3214,
       "missing_phrases": []
     },
     {
@@ -262,11 +263,11 @@
       "retrieved": [
         "billing-and-invoices",
         "pricing-and-discounts",
+        "gift-orders",
         "bulk-and-business-orders",
-        "support-contact",
-        "refund-policy"
+        "support-contact"
       ],
-      "top_score": 0.3281,
+      "top_score": 0.3675,
       "missing_phrases": []
     },
     {
@@ -276,13 +277,13 @@
         "billing-and-invoices"
       ],
       "retrieved": [
-        "cancellations",
         "gift-orders",
         "cancellations",
-        "damaged-and-missing-items",
+        "cancellations",
+        "billing-and-invoices",
         "refund-policy"
       ],
-      "top_score": 0.3582,
+      "top_score": 0.438,
       "missing_phrases": []
     },
     {
@@ -294,11 +295,11 @@
       "retrieved": [
         "warranty",
         "product-care",
-        "support-contact",
-        "refund-policy",
-        "returns-and-exchanges"
+        "product-care",
+        "returns-and-exchanges",
+        "refund-policy"
       ],
-      "top_score": 0.6073,
+      "top_score": 0.6127,
       "missing_phrases": []
     },
     {
@@ -310,11 +311,11 @@
       "retrieved": [
         "warranty",
         "product-care",
+        "product-care",
         "support-contact",
-        "returns-and-exchanges",
-        "damaged-and-missing-items"
+        "returns-and-exchanges"
       ],
-      "top_score": 0.4454,
+      "top_score": 0.4519,
       "missing_phrases": []
     },
     {
@@ -326,12 +327,12 @@
       ],
       "retrieved": [
         "warranty",
-        "product-care",
+        "returns-and-exchanges",
         "support-contact",
-        "damaged-and-missing-items",
-        "refund-policy"
+        "product-care",
+        "product-care"
       ],
-      "top_score": 0.3511,
+      "top_score": 0.3536,
       "missing_phrases": []
     },
     {
@@ -342,13 +343,13 @@
         "refund-policy"
       ],
       "retrieved": [
+        "damaged-and-missing-items",
+        "returns-and-exchanges",
         "returns-and-exchanges",
         "damaged-and-missing-items",
-        "refund-policy",
-        "warranty",
-        "delivery-problems"
+        "damaged-and-missing-items"
       ],
-      "top_score": 0.4453,
+      "top_score": 0.4712,
       "missing_phrases": []
     },
     {
@@ -357,12 +358,12 @@
       "expected": [],
       "retrieved": [
         "support-contact",
+        "support-contact",
         "delivery-problems",
-        "refund-policy",
-        "shipping",
-        "stock-and-availability"
+        "stock-and-availability",
+        "shipping"
       ],
-      "top_score": 0.44,
+      "top_score": 0.4165,
       "missing_phrases": []
     },
     {
@@ -371,12 +372,12 @@
       "expected": [],
       "retrieved": [
         "support-contact",
+        "support-contact",
         "data-and-privacy",
         "warranty",
-        "billing-and-invoices",
         "bulk-and-business-orders"
       ],
-      "top_score": 0.2287,
+      "top_score": 0.2193,
       "missing_phrases": []
     },
     {
@@ -388,11 +389,11 @@
       "retrieved": [
         "cancellations",
         "cancellations",
-        "delivery-problems",
-        "damaged-and-missing-items",
-        "shipping"
+        "cancellations",
+        "cancellations",
+        "gift-orders"
       ],
-      "top_score": 0.545,
+      "top_score": 0.6115,
       "missing_phrases": []
     },
     {
@@ -403,12 +404,12 @@
       ],
       "retrieved": [
         "cancellations",
-        "damaged-and-missing-items",
-        "delivery-problems",
-        "returns-and-exchanges",
-        "refund-policy"
+        "cancellations",
+        "cancellations",
+        "gift-orders",
+        "cancellations"
       ],
-      "top_score": 0.4401,
+      "top_score": 0.5237,
       "missing_phrases": []
     },
     {
@@ -419,12 +420,12 @@
       ],
       "retrieved": [
         "cancellations",
+        "refund-policy",
         "cancellations",
         "refund-policy",
-        "billing-and-invoices",
-        "returns-and-exchanges"
+        "cancellations"
       ],
-      "top_score": 0.4977,
+      "top_score": 0.4843,
       "missing_phrases": []
     },
     {
@@ -435,12 +436,12 @@
       ],
       "retrieved": [
         "damaged-and-missing-items",
-        "support-contact",
+        "damaged-and-missing-items",
+        "damaged-and-missing-items",
         "delivery-problems",
-        "warranty",
         "returns-and-exchanges"
       ],
-      "top_score": 0.4907,
+      "top_score": 0.563,
       "missing_phrases": []
     },
     {
@@ -451,12 +452,12 @@
       ],
       "retrieved": [
         "damaged-and-missing-items",
+        "damaged-and-missing-items",
+        "damaged-and-missing-items",
         "delivery-problems",
-        "returns-and-exchanges",
-        "stock-and-availability",
-        "shipping"
+        "stock-and-availability"
       ],
-      "top_score": 0.3987,
+      "top_score": 0.4151,
       "missing_phrases": []
     },
     {
@@ -467,12 +468,12 @@
       ],
       "retrieved": [
         "damaged-and-missing-items",
+        "damaged-and-missing-items",
         "returns-and-exchanges",
-        "delivery-problems",
-        "refund-policy",
-        "gift-orders"
+        "returns-and-exchanges",
+        "damaged-and-missing-items"
       ],
-      "top_score": 0.3347,
+      "top_score": 0.3787,
       "missing_phrases": []
     },
     {
@@ -483,12 +484,12 @@
       ],
       "retrieved": [
         "pricing-and-discounts",
-        "gift-orders",
         "billing-and-invoices",
-        "refund-policy",
-        "cancellations"
+        "gift-orders",
+        "cancellations",
+        "gift-orders"
       ],
-      "top_score": 0.3275,
+      "top_score": 0.4001,
       "missing_phrases": []
     },
     {
@@ -500,11 +501,11 @@
       "retrieved": [
         "pricing-and-discounts",
         "shipping",
-        "refund-policy",
         "bulk-and-business-orders",
-        "warranty"
+        "cancellations",
+        "returns-and-exchanges"
       ],
-      "top_score": 0.317,
+      "top_score": 0.3678,
       "missing_phrases": []
     },
     {
@@ -516,11 +517,11 @@
       "retrieved": [
         "refund-policy",
         "support-contact",
-        "warranty",
-        "shipping",
-        "stock-and-availability"
+        "refund-policy",
+        "delivery-problems",
+        "cancellations"
       ],
-      "top_score": 0.2421,
+      "top_score": 0.2829,
       "missing_phrases": []
     },
     {
@@ -530,13 +531,13 @@
         "gift-orders"
       ],
       "retrieved": [
-        "cancellations",
-        "data-and-privacy",
-        "cancellations",
         "gift-orders",
-        "billing-and-invoices"
+        "data-and-privacy",
+        "gift-orders",
+        "data-and-privacy",
+        "cancellations"
       ],
-      "top_score": 0.2875,
+      "top_score": 0.3124,
       "missing_phrases": []
     },
     {
@@ -547,12 +548,12 @@
       ],
       "retrieved": [
         "gift-orders",
+        "gift-orders",
         "refund-policy",
-        "cancellations",
-        "support-contact",
-        "stock-and-availability"
+        "gift-orders",
+        "refund-policy"
       ],
-      "top_score": 0.4544,
+      "top_score": 0.5077,
       "missing_phrases": []
     },
     {
@@ -564,11 +565,11 @@
       "retrieved": [
         "stock-and-availability",
         "support-contact",
-        "refund-policy",
-        "damaged-and-missing-items",
+        "gift-orders",
+        "pricing-and-discounts",
         "cancellations"
       ],
-      "top_score": 0.4439,
+      "top_score": 0.4738,
       "missing_phrases": []
     },
     {
@@ -578,13 +579,13 @@
         "stock-and-availability"
       ],
       "retrieved": [
-        "refund-policy",
         "stock-and-availability",
         "cancellations",
-        "billing-and-invoices",
-        "pricing-and-discounts"
+        "refund-policy",
+        "cancellations",
+        "bulk-and-business-orders"
       ],
-      "top_score": 0.3404,
+      "top_score": 0.3543,
       "missing_phrases": []
     },
     {
@@ -597,10 +598,10 @@
         "stock-and-availability",
         "cancellations",
         "bulk-and-business-orders",
-        "pricing-and-discounts",
-        "delivery-problems"
+        "data-and-privacy",
+        "cancellations"
       ],
-      "top_score": 0.3556,
+      "top_score": 0.3772,
       "missing_phrases": []
     },
     {
@@ -612,11 +613,11 @@
       "retrieved": [
         "delivery-problems",
         "damaged-and-missing-items",
-        "returns-and-exchanges",
-        "account-security",
-        "cancellations"
+        "support-contact",
+        "cancellations",
+        "account-security"
       ],
-      "top_score": 0.2752,
+      "top_score": 0.3587,
       "missing_phrases": []
     },
     {
@@ -627,12 +628,12 @@
       ],
       "retrieved": [
         "damaged-and-missing-items",
+        "damaged-and-missing-items",
         "delivery-problems",
-        "shipping",
-        "returns-and-exchanges",
-        "stock-and-availability"
+        "delivery-problems",
+        "shipping"
       ],
-      "top_score": 0.4717,
+      "top_score": 0.5119,
       "missing_phrases": []
     },
     {
@@ -642,13 +643,13 @@
         "delivery-problems"
       ],
       "retrieved": [
-        "delivery-problems",
-        "damaged-and-missing-items",
         "cancellations",
-        "shipping",
-        "bulk-and-business-orders"
+        "cancellations",
+        "delivery-problems",
+        "gift-orders",
+        "delivery-problems"
       ],
-      "top_score": 0.3922,
+      "top_score": 0.4361,
       "missing_phrases": []
     },
     {
@@ -661,10 +662,10 @@
         "data-and-privacy",
         "cancellations",
         "cancellations",
-        "gift-orders",
-        "pricing-and-discounts"
+        "data-and-privacy",
+        "cancellations"
       ],
-      "top_score": 0.4439,
+      "top_score": 0.5277,
       "missing_phrases": []
     },
     {
@@ -676,11 +677,11 @@
       "retrieved": [
         "data-and-privacy",
         "cancellations",
-        "cancellations",
+        "support-contact",
         "support-contact",
         "delivery-problems"
       ],
-      "top_score": 0.3139,
+      "top_score": 0.3964,
       "missing_phrases": []
     },
     {
@@ -692,11 +693,11 @@
       "retrieved": [
         "bulk-and-business-orders",
         "pricing-and-discounts",
+        "shipping",
         "stock-and-availability",
-        "returns-and-exchanges",
-        "shipping"
+        "cancellations"
       ],
-      "top_score": 0.4988,
+      "top_score": 0.5361,
       "missing_phrases": []
     },
     {
@@ -706,13 +707,13 @@
         "bulk-and-business-orders"
       ],
       "retrieved": [
-        "refund-policy",
         "billing-and-invoices",
+        "refund-policy",
+        "refund-policy",
         "bulk-and-business-orders",
-        "gift-orders",
-        "delivery-problems"
+        "gift-orders"
       ],
-      "top_score": 0.418,
+      "top_score": 0.433,
       "missing_phrases": []
     },
     {
@@ -723,12 +724,12 @@
       ],
       "retrieved": [
         "product-care",
+        "product-care",
         "warranty",
         "data-and-privacy",
-        "refund-policy",
-        "support-contact"
+        "data-and-privacy"
       ],
-      "top_score": 0.3225,
+      "top_score": 0.4502,
       "missing_phrases": []
     },
     {
@@ -739,12 +740,12 @@
       ],
       "retrieved": [
         "product-care",
-        "billing-and-invoices",
+        "product-care",
+        "cancellations",
         "warranty",
-        "stock-and-availability",
-        "cancellations"
+        "billing-and-invoices"
       ],
-      "top_score": 0.2903,
+      "top_score": 0.3977,
       "missing_phrases": []
     },
     {
@@ -755,12 +756,12 @@
       ],
       "retrieved": [
         "product-care",
+        "product-care",
         "refund-policy",
-        "warranty",
-        "gift-orders",
-        "cancellations"
+        "refund-policy",
+        "gift-orders"
       ],
-      "top_score": 0.2537,
+      "top_score": 0.2641,
       "missing_phrases": []
     },
     {
@@ -771,12 +772,12 @@
       ],
       "retrieved": [
         "support-contact",
+        "support-contact",
         "delivery-problems",
-        "damaged-and-missing-items",
         "shipping",
-        "returns-and-exchanges"
+        "bulk-and-business-orders"
       ],
-      "top_score": 0.3992,
+      "top_score": 0.4087,
       "missing_phrases": []
     },
     {
@@ -788,11 +789,11 @@
       "retrieved": [
         "support-contact",
         "damaged-and-missing-items",
-        "refund-policy",
-        "delivery-problems",
-        "warranty"
+        "support-contact",
+        "returns-and-exchanges",
+        "refund-policy"
       ],
-      "top_score": 0.2006,
+      "top_score": 0.2721,
       "missing_phrases": []
     },
     {
@@ -804,12 +805,12 @@
       ],
       "retrieved": [
         "cancellations",
+        "returns-and-exchanges",
         "refund-policy",
         "cancellations",
-        "returns-and-exchanges",
         "gift-orders"
       ],
-      "top_score": 0.4411,
+      "top_score": 0.4401,
       "missing_phrases": []
     },
     {
@@ -822,11 +823,11 @@
       "retrieved": [
         "warranty",
         "damaged-and-missing-items",
+        "damaged-and-missing-items",
         "returns-and-exchanges",
-        "support-contact",
-        "product-care"
+        "damaged-and-missing-items"
       ],
-      "top_score": 0.5501,
+      "top_score": 0.5535,
       "missing_phrases": []
     },
     {
@@ -838,12 +839,12 @@
       ],
       "retrieved": [
         "gift-orders",
+        "gift-orders",
         "refund-policy",
-        "returns-and-exchanges",
-        "cancellations",
-        "cancellations"
+        "gift-orders",
+        "refund-policy"
       ],
-      "top_score": 0.4422,
+      "top_score": 0.566,
       "missing_phrases": []
     },
     {
@@ -852,12 +853,12 @@
       "expected": [],
       "retrieved": [
         "pricing-and-discounts",
-        "shipping",
         "delivery-problems",
+        "shipping",
         "support-contact",
-        "returns-and-exchanges"
+        "bulk-and-business-orders"
       ],
-      "top_score": 0.2972,
+      "top_score": 0.2846,
       "missing_phrases": []
     },
     {
@@ -865,13 +866,13 @@
       "kind": "unanswerable",
       "expected": [],
       "retrieved": [
-        "data-and-privacy",
         "warranty",
+        "data-and-privacy",
         "support-contact",
-        "billing-and-invoices",
-        "pricing-and-discounts"
+        "support-contact",
+        "data-and-privacy"
       ],
-      "top_score": 0.1926,
+      "top_score": 0.1935,
       "missing_phrases": []
     },
     {
@@ -882,12 +883,12 @@
       ],
       "retrieved": [
         "support-contact",
+        "cancellations",
         "damaged-and-missing-items",
         "cancellations",
-        "cancellations",
-        "returns-and-exchanges"
+        "damaged-and-missing-items"
       ],
-      "top_score": 0.1591,
+      "top_score": 0.2796,
       "missing_phrases": []
     },
     {
@@ -898,12 +899,12 @@
       ],
       "retrieved": [
         "delivery-problems",
+        "delivery-problems",
         "damaged-and-missing-items",
-        "bulk-and-business-orders",
-        "pricing-and-discounts",
-        "stock-and-availability"
+        "cancellations",
+        "damaged-and-missing-items"
       ],
-      "top_score": 0.2208,
+      "top_score": 0.2449,
       "missing_phrases": []
     },
     {
@@ -914,12 +915,12 @@
       ],
       "retrieved": [
         "account-security",
-        "refund-policy",
         "returns-and-exchanges",
-        "warranty",
-        "product-care"
+        "refund-policy",
+        "product-care",
+        "delivery-problems"
       ],
-      "top_score": 0.2404,
+      "top_score": 0.2446,
       "missing_phrases": []
     },
     {
@@ -931,11 +932,11 @@
       "retrieved": [
         "product-care",
         "cancellations",
-        "returns-and-exchanges",
         "cancellations",
-        "bulk-and-business-orders"
+        "cancellations",
+        "returns-and-exchanges"
       ],
-      "top_score": 0.1499,
+      "top_score": 0.2744,
       "missing_phrases": []
     },
     {
@@ -946,12 +947,12 @@
       ],
       "retrieved": [
         "delivery-problems",
-        "support-contact",
         "bulk-and-business-orders",
-        "pricing-and-discounts",
-        "returns-and-exchanges"
+        "returns-and-exchanges",
+        "support-contact",
+        "billing-and-invoices"
       ],
-      "top_score": 0.3106,
+      "top_score": 0.3262,
       "missing_phrases": []
     },
     {
@@ -962,12 +963,12 @@
       ],
       "retrieved": [
         "delivery-problems",
-        "damaged-and-missing-items",
+        "delivery-problems",
         "shipping",
-        "bulk-and-business-orders",
-        "cancellations"
+        "cancellations",
+        "damaged-and-missing-items"
       ],
-      "top_score": 0.3774,
+      "top_score": 0.379,
       "missing_phrases": []
     }
   ]

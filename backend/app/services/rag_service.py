@@ -119,9 +119,15 @@ class RAGService:
                 f"Expected {self.settings.embedding_dimensions} query dimensions, "
                 f"received {len(query_embedding)}"
             )
-        matches = self.chunks.semantic_search(
+        # Hybrid rather than vector-only. Structure-aware chunking put rare
+        # literal terms into small chunks whose embedding is dominated by the
+        # rest of the section, and the eval caught two questions that broke
+        # because of it; keyword search fused in by rank repairs exactly those
+        # without costing anything on the paraphrases vector search is good at.
+        matches = self.chunks.hybrid_search(
             organization_id=organization_id,
             knowledge_base_id=data.knowledge_base_id,
+            query_text=data.question,
             query_embedding=query_embedding,
             top_k=data.top_k,
         )
