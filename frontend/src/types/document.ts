@@ -1,6 +1,6 @@
 import type { DocumentStatus } from "@/lib/terminology";
 
-import type { ISODateString, UUID } from "./api";
+import type { ISODateString, Page, UUID } from "./api";
 
 export type { DocumentStatus };
 
@@ -19,6 +19,16 @@ export interface KnowledgeDocument {
   error_message: string | null;
   created_at: ISODateString;
   updated_at: ISODateString;
+}
+
+/**
+ * A page of documents, plus the numbers shown on the filter controls.
+ *
+ * The counts describe the current search but ignore the selected status, so
+ * every filter chip can show how many documents it would reveal.
+ */
+export interface DocumentPage extends Page<KnowledgeDocument> {
+  status_counts: Partial<Record<DocumentStatus, number>>;
 }
 
 export interface DocumentUpload {

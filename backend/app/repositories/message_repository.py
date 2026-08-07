@@ -1,10 +1,11 @@
 import uuid
 from datetime import datetime, timedelta, timezone
 
-from sqlalchemy import func, select
-from sqlalchemy.orm import Session
+from sqlalchemy import func, literal, select, tuple_
+from sqlalchemy.orm import Session, selectinload
 
-from app.models.conversation import Message
+from app.models.conversation import Message, MessageCitation
+from app.schemas.pagination import CursorPosition
 
 
 class MessageRepository:
@@ -36,6 +37,47 @@ class MessageRepository:
             latest = latest.replace(tzinfo=timezone.utc)
 
         return now if now > latest else latest + timedelta(microseconds=1)
+
+    def list_page(
+        self,
+        *,
+        organization_id: uuid.UUID,
+        conversation_id: uuid.UUID,
+        limit: int,
+        before: CursorPosition | None = None,
+    ) -> tuple[list[Message], bool]:
+        """The newest messages in a thread, oldest-first, plus whether older remain.
+
+        A chat thread pages backwards, not forwards: opening it should show
+        the end of the conversation, and "load earlier" walks towards the
+        start. So the query sorts descending to take the most recent `limit`,
+        and the result is reversed before returning, because that is the order
+        the thread is read in.
+        """
+        statement = select(Message).where(
+            Message.organization_id == organization_id,
+            Message.conversation_id == conversation_id,
+        )
+        if before is not None:
+            created_at, message_id = before
+            statement = statement.where(
+                tuple_(Message.created_at, Message.id)
+                < tuple_(literal(created_at), literal(message_id))
+            )
+        statement = (
+            statement.options(
+                # Citations are rendered with every assistant message, so
+                # loading them per row would be one query per message.
+                selectinload(Message.citations).selectinload(MessageCitation.document),
+                selectinload(Message.citations).selectinload(MessageCitation.chunk),
+            )
+            .order_by(Message.created_at.desc(), Message.id.desc())
+            .limit(limit + 1)
+        )
+
+        rows = list(self.db.scalars(statement).all())
+        has_more = len(rows) > limit
+        return list(reversed(rows[:limit])), has_more
 
     def create(
         self,

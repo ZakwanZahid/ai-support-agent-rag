@@ -1,4 +1,5 @@
 import uuid
+from collections.abc import Sequence
 from pathlib import Path
 
 from fastapi import UploadFile
@@ -11,6 +12,8 @@ from app.documents.cleanup import remove_files
 from app.models.document import Document
 from app.repositories.document_repository import DocumentRepository
 from app.repositories.knowledge_base_repository import KnowledgeBaseRepository
+from app.schemas.document import DocumentPage, DocumentResponse
+from app.schemas.pagination import decode_cursor, encode_cursor
 
 
 SUPPORTED_FILE_EXTENSIONS = {
@@ -126,6 +129,41 @@ class DocumentService:
         return self.documents.list_for_organization(
             organization_id=organization_id,
             knowledge_base_id=knowledge_base_id,
+        )
+
+    def list_page(
+        self,
+        *,
+        organization_id: uuid.UUID,
+        limit: int,
+        knowledge_base_id: uuid.UUID | None = None,
+        search: str | None = None,
+        statuses: Sequence[str] | None = None,
+        cursor: str | None = None,
+    ) -> DocumentPage:
+        after = decode_cursor(cursor) if cursor else None
+        documents, has_more = self.documents.list_page(
+            organization_id=organization_id,
+            limit=limit,
+            knowledge_base_id=knowledge_base_id,
+            search=search,
+            statuses=statuses,
+            after=after,
+        )
+        last = documents[-1] if documents else None
+        return DocumentPage(
+            items=[DocumentResponse.model_validate(row) for row in documents],
+            next_cursor=(
+                encode_cursor(last.created_at, last.id)
+                if last is not None and has_more
+                else None
+            ),
+            has_more=has_more,
+            status_counts=self.documents.status_counts(
+                organization_id=organization_id,
+                knowledge_base_id=knowledge_base_id,
+                search=search,
+            ),
         )
 
     def get(

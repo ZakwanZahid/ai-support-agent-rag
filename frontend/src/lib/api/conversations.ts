@@ -1,4 +1,4 @@
-import type { UUID } from "@/types/api";
+import type { Page, UUID } from "@/types/api";
 import type {
   AskRequest,
   AskResponse,
@@ -53,6 +53,31 @@ export async function getConversation(
 ): Promise<ConversationDetailResponse> {
   const response = await apiClient.get<ConversationDetailResponse>(
     `${conversationsPath(organizationId)}/${encodeURIComponent(conversationId)}`,
+  );
+  return response.data;
+}
+
+/**
+ * Messages older than a cursor, for "load earlier" in a long thread.
+ *
+ * Returned oldest-first, the order they are read in, so a caller prepends the
+ * page as-is rather than reversing it.
+ */
+export async function listConversationMessages(
+  organizationId: UUID,
+  conversationId: UUID,
+  options: { cursor?: string | null; limit?: number } = {},
+): Promise<Page<MessageResponse>> {
+  const response = await apiClient.get<Page<MessageResponse>>(
+    `${conversationsPath(organizationId)}/${encodeURIComponent(
+      conversationId,
+    )}/messages`,
+    {
+      params: {
+        ...(options.cursor ? { cursor: options.cursor } : {}),
+        ...(options.limit ? { limit: options.limit } : {}),
+      },
+    },
   );
   return response.data;
 }

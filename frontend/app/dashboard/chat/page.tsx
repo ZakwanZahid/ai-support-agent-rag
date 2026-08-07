@@ -1,6 +1,6 @@
 "use client";
 
-import { BookOpen, MessagesSquare } from "lucide-react";
+import { BookOpen, LoaderCircle, MessagesSquare } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useRef } from "react";
@@ -135,6 +135,22 @@ function ChatWorkspace() {
             </div>
           ) : hasMessages ? (
             <div className="mx-auto w-full max-w-3xl space-y-6 px-4 py-6">
+              {chat.hasEarlierMessages ? (
+                <div className="flex justify-center">
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    disabled={chat.isLoadingEarlierMessages}
+                    onClick={chat.loadEarlierMessages}
+                  >
+                    {chat.isLoadingEarlierMessages ? (
+                      <LoaderCircle aria-hidden="true" className="animate-spin" />
+                    ) : null}
+                    Load earlier messages
+                  </Button>
+                </div>
+              ) : null}
+
               {chat.messages.map((message) => (
                 <ChatMessage
                   key={message.id}

@@ -8,13 +8,13 @@ import { getAPIErrorMessage } from "@/lib/api/client";
 import {
   createConversation,
   getConversation,
+  listConversationMessages,
   listConversations,
   sendChatMessage,
 } from "@/lib/api/conversations";
-import { listDocuments } from "@/lib/api/documents";
 import { listKnowledgeBases } from "@/lib/api/knowledge-bases";
 import { queryKeys } from "@/lib/query-keys";
-import { isDocumentReady } from "@/lib/terminology";
+import type { ChatMessage } from "@/types/conversation";
 
 interface UseChatOptions {
   workspaceId: string | null;
@@ -40,12 +40,6 @@ export function useChat({
     enabled,
   });
 
-  const documentsQuery = useQuery({
-    queryKey: queryKeys.documents(workspaceId),
-    queryFn: () => listDocuments(workspaceId!),
-    enabled,
-  });
-
   const threadsQuery = useQuery({
     queryKey: queryKeys.conversations(workspaceId),
     queryFn: () => listConversations(workspaceId!),
@@ -60,15 +54,16 @@ export function useChat({
   /**
    * Only spaces with at least one ready document can answer anything. Offering
    * the others would produce confident "I don't know" replies.
+   *
+   * Read from the knowledge space's own `ready_document_count` rather than by
+   * scanning every document. That aggregate has always been there (ADR-031);
+   * pagination is what made using it necessary, since "every document" is no
+   * longer something a single request returns.
    */
-  const answerableSpaces = useMemo(() => {
-    const readyBySpace = new Set(
-      (documentsQuery.data ?? [])
-        .filter((document) => isDocumentReady(document.status))
-        .map((document) => document.knowledge_base_id),
-    );
-    return knowledgeSpaces.filter((space) => readyBySpace.has(space.id));
-  }, [documentsQuery.data, knowledgeSpaces]);
+  const answerableSpaces = useMemo(
+    () => knowledgeSpaces.filter((space) => (space.ready_document_count ?? 0) > 0),
+    [knowledgeSpaces],
+  );
 
   // Resolve the active space without storing it, so it stays valid when the
   // underlying lists change.
@@ -94,6 +89,40 @@ export function useChat({
     queryKey: queryKeys.conversation(workspaceId, threadId ?? ""),
     queryFn: () => getConversation(workspaceId!, threadId!),
     enabled: Boolean(workspaceId && threadId),
+  });
+
+  /**
+   * Messages older than the page the thread opened with.
+   *
+   * Held separately from the thread query rather than merged into its cache:
+   * asking a new question invalidates the thread, and rolling earlier pages
+   * into that cache would throw them away on every message. Keyed by thread,
+   * so switching threads starts empty.
+   */
+  const [earlier, setEarlier] = useState<{
+    threadId: string | null;
+    messages: ChatMessage[];
+    cursor: string | null;
+  }>({ threadId: null, messages: [], cursor: null });
+
+  const earlierForThread = earlier.threadId === threadId ? earlier : null;
+  const olderCursor =
+    earlierForThread?.cursor ?? threadQuery.data?.next_message_cursor ?? null;
+
+  const loadEarlierMutation = useMutation({
+    mutationFn: () =>
+      listConversationMessages(workspaceId!, threadId!, { cursor: olderCursor }),
+    onSuccess: (page) => {
+      setEarlier((current) => {
+        const existing = current.threadId === threadId ? current.messages : [];
+        return {
+          threadId,
+          messages: [...page.items, ...existing],
+          cursor: page.has_more ? page.next_cursor : null,
+        };
+      });
+    },
+    onError: (error) => toast.error(getAPIErrorMessage(error)),
   });
 
   const sendMutation = useMutation({
@@ -144,7 +173,17 @@ export function useChat({
     setActiveThreadId(null);
   }, []);
 
-  const messages = threadQuery.data?.messages ?? [];
+  const messages = useMemo(
+    () => [
+      ...(earlierForThread?.messages ?? []),
+      ...(threadQuery.data?.messages ?? []),
+    ],
+    [earlierForThread, threadQuery.data],
+  );
+  const hasEarlierMessages = Boolean(
+    olderCursor &&
+      (earlierForThread ? earlierForThread.cursor : threadQuery.data?.has_more_messages),
+  );
   const latestAnswer = [...messages]
     .reverse()
     .find((message) => message.role === "assistant");
@@ -163,24 +202,20 @@ export function useChat({
     startNewThread,
 
     messages,
+    hasEarlierMessages,
+    loadEarlierMessages: () => loadEarlierMutation.mutate(),
+    isLoadingEarlierMessages: loadEarlierMutation.isPending,
     latestAnswer,
     pendingQuestion,
 
     ask: (question: string) => sendMutation.mutate(question),
     isSending: sendMutation.isPending,
 
-    isLoading:
-      knowledgeSpacesQuery.isPending ||
-      documentsQuery.isPending ||
-      threadsQuery.isPending,
+    isLoading: knowledgeSpacesQuery.isPending || threadsQuery.isPending,
     isThreadLoading: Boolean(threadId) && threadQuery.isPending,
-    isError:
-      knowledgeSpacesQuery.isError ||
-      documentsQuery.isError ||
-      threadsQuery.isError,
+    isError: knowledgeSpacesQuery.isError || threadsQuery.isError,
     refetch: () => {
       void knowledgeSpacesQuery.refetch();
-      void documentsQuery.refetch();
       void threadsQuery.refetch();
     },
   };

@@ -41,7 +41,15 @@ export interface ChatThread {
 }
 
 export interface ChatThreadDetail extends ChatThread {
+  /**
+   * The newest page of messages, not necessarily every one.
+   *
+   * Opening a thread costs the same whether it holds ten messages or a
+   * thousand. `next_message_cursor` walks backwards through the earlier ones.
+   */
   messages: ChatMessage[];
+  has_more_messages: boolean;
+  next_message_cursor: string | null;
 }
 
 export interface ChatThreadDraft {

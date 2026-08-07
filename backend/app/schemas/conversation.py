@@ -59,7 +59,17 @@ class ConversationResponse(BaseModel):
 
 
 class ConversationDetailResponse(ConversationResponse):
+    """A thread with its most recent messages, not necessarily all of them.
+
+    Opening a thread should cost the same whether it holds ten messages or a
+    thousand, so this carries one page — the newest — and says whether older
+    ones exist. `next_message_cursor` walks backwards through them via
+    `GET /conversations/{id}/messages`.
+    """
+
     messages: list[MessageResponse]
+    has_more_messages: bool = False
+    next_message_cursor: str | None = None
 
 
 class ChatMessageRequest(BaseModel):

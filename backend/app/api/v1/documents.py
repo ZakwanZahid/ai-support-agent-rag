@@ -24,7 +24,8 @@ from app.api.deps import (
 from app.core.config import settings
 from app.models.document import Document
 from app.models.organization import OrganizationMember
-from app.schemas.document import DocumentResponse
+from app.schemas.document import DocumentPage, DocumentResponse
+from app.schemas.pagination import InvalidCursorError
 from app.services.document_service import (
     DocumentBusyError,
     DocumentNotFoundError,
@@ -98,7 +99,7 @@ async def upload_document(
     return document
 
 
-@router.get("/documents", response_model=list[DocumentResponse])
+@router.get("/documents", response_model=DocumentPage)
 def list_documents(
     organization_id: uuid.UUID,
     db: Annotated[Session, Depends(get_db)],
@@ -107,11 +108,34 @@ def list_documents(
         Depends(require_organization_member),
     ],
     knowledge_base_id: Annotated[uuid.UUID | None, Query()] = None,
-) -> list[Document]:
-    return DocumentService(db).list_for_organization(
-        organization_id=organization_id,
-        knowledge_base_id=knowledge_base_id,
-    )
+    # Searching and filtering happen here rather than in the browser. Client
+    # side they only ever worked because the whole collection was already
+    # loaded, which is the thing pagination stops being true.
+    q: Annotated[str | None, Query(max_length=255)] = None,
+    status_filter: Annotated[
+        list[str] | None,
+        Query(
+            alias="status",
+            description="Repeatable. Raw document statuses; the UI maps its own labels onto these.",
+        ),
+    ] = None,
+    limit: Annotated[int, Query(ge=1, le=100)] = 25,
+    cursor: Annotated[str | None, Query()] = None,
+) -> DocumentPage:
+    try:
+        return DocumentService(db).list_page(
+            organization_id=organization_id,
+            limit=limit,
+            knowledge_base_id=knowledge_base_id,
+            search=q,
+            statuses=status_filter,
+            cursor=cursor,
+        )
+    except InvalidCursorError:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Invalid pagination cursor",
+        )
 
 
 @router.get("/documents/{document_id}", response_model=DocumentResponse)

@@ -42,6 +42,7 @@ export function DeleteWorkspaceSection({
       clearActiveWorkspace();
       await queryClient.invalidateQueries({ queryKey: queryKeys.organizations });
       queryClient.removeQueries({ queryKey: ["documents"] });
+      queryClient.removeQueries({ queryKey: ["documents-summary"] });
       queryClient.removeQueries({ queryKey: ["knowledge-bases"] });
       queryClient.removeQueries({ queryKey: ["conversations"] });
       toast.success(`${workspace.name} deleted.`);

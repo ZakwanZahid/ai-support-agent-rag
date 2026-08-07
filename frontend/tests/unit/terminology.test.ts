@@ -1,11 +1,14 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  DOCUMENT_FILTERS,
   DOCUMENT_PREPARATION_STAGES,
   DOCUMENT_STATUSES,
   PREPARE_ACTION_LABEL,
   TERMS,
   describeDocumentStatus,
+  documentFilterCount,
+  documentFilterStatuses,
   documentStatusLabel,
   hasDocumentFailed,
   isDocumentInProgress,
@@ -151,5 +154,55 @@ describe("terminology", () => {
       expect(preparationStageIndex("quarantined")).toBe(-1);
       expect(preparationStageIndex(null)).toBe(-1);
     });
+  });
+});
+
+/**
+ * Filtering moved to the server, so the request has to name raw API statuses.
+ * This module is the one place allowed to know both vocabularies, and these
+ * tests are what stop a page from learning the API's.
+ */
+describe("document filters", () => {
+  it("maps every filter to the API statuses it covers", () => {
+    expect(documentFilterStatuses("ready")).toEqual(["indexed"]);
+    // One product filter, two backend statuses — the detail a page should
+    // never have to carry.
+    expect(documentFilterStatuses("processing")).toEqual([
+      "processing",
+      "processed",
+    ]);
+    expect(documentFilterStatuses("failed")).toEqual(["failed"]);
+  });
+
+  it("sends no status at all for All, rather than listing every one", () => {
+    expect(documentFilterStatuses("all")).toEqual([]);
+  });
+
+  it("counts All as the sum of every status the server reported", () => {
+    const counts = { indexed: 4, failed: 2, pending: 1 };
+
+    expect(documentFilterCount("all", counts)).toBe(7);
+  });
+
+  it("counts a filter across all the statuses it covers", () => {
+    const counts = { processing: 2, processed: 3, indexed: 9 };
+
+    expect(documentFilterCount("processing", counts)).toBe(5);
+  });
+
+  it("reads a status the server did not mention as zero", () => {
+    // The server groups by status, so statuses with no rows are simply absent
+    // rather than reported as zero.
+    expect(documentFilterCount("failed", { indexed: 3 })).toBe(0);
+    expect(documentFilterCount("all", {})).toBe(0);
+  });
+
+  it("labels every filter without leaking an API status", () => {
+    for (const filter of DOCUMENT_FILTERS) {
+      for (const status of filter.statuses) {
+        if (status === "processing" || status === "failed") continue;
+        expect(filter.label.toLowerCase()).not.toContain(status);
+      }
+    }
   });
 });

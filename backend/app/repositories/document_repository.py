@@ -1,10 +1,19 @@
 import uuid
+from collections.abc import Sequence
 from dataclasses import dataclass
 
-from sqlalchemy import case, delete as sa_delete, func, select
+from sqlalchemy import (
+    case,
+    delete as sa_delete,
+    func,
+    literal,
+    select,
+    tuple_,
+)
 from sqlalchemy.orm import Session
 
 from app.models.document import Document
+from app.schemas.pagination import CursorPosition
 
 
 @dataclass(frozen=True)
@@ -59,11 +68,99 @@ class DocumentRepository:
         organization_id: uuid.UUID,
         knowledge_base_id: uuid.UUID | None = None,
     ) -> list[Document]:
+        statement = self._filtered(
+            organization_id=organization_id,
+            knowledge_base_id=knowledge_base_id,
+        ).order_by(Document.created_at.desc(), Document.id.desc())
+        return list(self.db.scalars(statement).all())
+
+    def _filtered(
+        self,
+        *,
+        organization_id: uuid.UUID,
+        knowledge_base_id: uuid.UUID | None = None,
+        search: str | None = None,
+        statuses: Sequence[str] | None = None,
+    ):
+        """The `where` clause every document query shares.
+
+        Kept in one place so the page query and the counts beside it can never
+        disagree about what the user is looking at — a filter applied to the
+        rows but not the counts is how a list ends up showing "7 ready" above
+        four rows.
+        """
         statement = select(Document).where(Document.organization_id == organization_id)
         if knowledge_base_id is not None:
             statement = statement.where(Document.knowledge_base_id == knowledge_base_id)
-        statement = statement.order_by(Document.created_at.desc(), Document.id)
-        return list(self.db.scalars(statement).all())
+        if statuses:
+            statement = statement.where(Document.status.in_(list(statuses)))
+        if search:
+            # Escaped so that a title containing % or _ searches for those
+            # characters rather than turning into a wildcard.
+            escaped = search.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+            statement = statement.where(
+                Document.title.ilike(f"%{escaped}%", escape="\\")
+            )
+        return statement
+
+    def list_page(
+        self,
+        *,
+        organization_id: uuid.UUID,
+        limit: int,
+        knowledge_base_id: uuid.UUID | None = None,
+        search: str | None = None,
+        statuses: Sequence[str] | None = None,
+        after: CursorPosition | None = None,
+    ) -> tuple[list[Document], bool]:
+        """One page of documents, newest first, plus whether more remain.
+
+        Fetches `limit + 1` rows and returns at most `limit`. Asking for one
+        extra is how you learn there is a next page without a second COUNT
+        query over the whole filtered set.
+        """
+        statement = self._filtered(
+            organization_id=organization_id,
+            knowledge_base_id=knowledge_base_id,
+            search=search,
+            statuses=statuses,
+        )
+        if after is not None:
+            created_at, document_id = after
+            # Strictly after the cursor in (created_at DESC, id DESC) order.
+            # The row comparison is what makes ties deterministic; comparing
+            # created_at alone would drop rows sharing a timestamp.
+            statement = statement.where(
+                tuple_(Document.created_at, Document.id)
+                < tuple_(literal(created_at), literal(document_id))
+            )
+        statement = statement.order_by(
+            Document.created_at.desc(), Document.id.desc()
+        ).limit(limit + 1)
+
+        rows = list(self.db.scalars(statement).all())
+        return rows[:limit], len(rows) > limit
+
+    def status_counts(
+        self,
+        *,
+        organization_id: uuid.UUID,
+        knowledge_base_id: uuid.UUID | None = None,
+        search: str | None = None,
+    ) -> dict[str, int]:
+        """How many documents each status holds under the current search.
+
+        Deliberately ignores the status filter: these numbers sit on the
+        filter controls themselves, and a count that only ever described the
+        status already selected would read the same on every tab.
+        """
+        filtered = self._filtered(
+            organization_id=organization_id,
+            knowledge_base_id=knowledge_base_id,
+            search=search,
+        ).subquery()
+        statement = select(filtered.c.status, func.count()).group_by(filtered.c.status)
+        return {status: count for status, count in self.db.execute(statement).all()}
 
     def delete(self, document: Document) -> None:
         """Remove one document row, letting the database cascade the rest.
