@@ -7,11 +7,7 @@ import { toast } from "sonner";
 import { getAPIErrorMessage, normalizeAPIError } from "@/lib/api/client";
 import { getDocument, prepareDocument } from "@/lib/api/documents";
 import { queryKeys } from "@/lib/query-keys";
-import {
-  hasDocumentFailed,
-  isDocumentInProgress,
-  isDocumentReady,
-} from "@/lib/terminology";
+import { hasDocumentFailed, isDocumentReady } from "@/lib/terminology";
 import type { KnowledgeDocument } from "@/types/document";
 
 /** How often to re-check a document that is still being prepared. */
@@ -50,7 +46,16 @@ export function useDocumentPreparation({
     enabled: Boolean(organizationId && watchedDocumentId),
     refetchInterval: (query) => {
       const status = query.state.data?.status;
-      if (!status || !isDocumentInProgress(status)) {
+      // Stop only once the document has actually finished, not merely
+      // because a poll caught it in a status the general-purpose "in
+      // progress" check does not consider transient. The very first poll
+      // here can land before the prepare request's own status flip has
+      // committed — `onMutate` starts watching synchronously, before the
+      // POST that moves the document out of `pending` — so a poll landing
+      // in that gap used to see `pending`, read it as "nothing to wait
+      // for", and switch polling off for good. The document kept
+      // preparing; nothing was left watching it.
+      if (status && (isDocumentReady(status) || hasDocumentFailed(status))) {
         return false;
       }
       if (startedAt && Date.now() - startedAt > POLL_TIMEOUT_MS) {
@@ -69,7 +74,9 @@ export function useDocumentPreparation({
 
   const isReady = isDocumentReady(status);
   const hasFailed = hasDocumentFailed(status);
-  const isPolling = Boolean(watchedDocumentId) && isDocumentInProgress(status);
+  // Mirrors the refetchInterval condition above: watching and not yet at a
+  // terminal status, rather than "in progress" by the list's definition.
+  const isPolling = Boolean(watchedDocumentId) && !isReady && !hasFailed;
 
   // Measured against the last successful fetch rather than a render-time
   // clock, so the value only changes when there is fresh data to react to.
