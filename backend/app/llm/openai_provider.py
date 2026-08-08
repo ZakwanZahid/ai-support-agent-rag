@@ -2,6 +2,7 @@ from openai import OpenAI, OpenAIError
 
 from app.core.config import Settings
 from app.llm.provider import ChatProviderConfigurationError, ChatProviderError
+from app.observability.usage import record_chat_usage
 
 
 class OpenAIChatProvider:
@@ -28,6 +29,18 @@ class OpenAIChatProvider:
             )
         except OpenAIError as exc:
             raise ChatProviderError("OpenAI chat generation failed") from exc
+
+        # Recorded from the response, before the answer is validated: the
+        # tokens were spent whether or not the content turns out to be usable,
+        # and a cap that only counts successful calls is a cap a failing model
+        # can walk straight through.
+        usage = getattr(completion, "usage", None)
+        if usage is not None:
+            record_chat_usage(
+                model=getattr(completion, "model", self.model),
+                prompt_tokens=usage.prompt_tokens or 0,
+                completion_tokens=usage.completion_tokens or 0,
+            )
 
         if not completion.choices:
             raise ChatProviderError("OpenAI returned no chat completion choices")

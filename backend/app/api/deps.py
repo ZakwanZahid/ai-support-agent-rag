@@ -34,6 +34,7 @@ from app.models.organization import Organization, OrganizationMember
 from app.models.user import User
 from app.repositories.organization_repository import OrganizationRepository
 from app.repositories.user_repository import UserRepository
+from app.services.usage_service import DailyBudgetExceededError, UsageService
 
 
 bearer_scheme = HTTPBearer(auto_error=False)
@@ -215,6 +216,28 @@ def enforce_chat_rate_limit(
         ),
         str(organization_id),
     )
+
+
+def enforce_daily_budget(
+    organization_id: Annotated[uuid.UUID, Depends(get_organization_id)],
+    db: Annotated[Session, Depends(get_db)],
+) -> None:
+    """Refuse a request once today's token budget is spent.
+
+    A different answer from the rate limiter's: `429` in both cases, but this
+    one will not clear in a minute, so the message says when it does. Waiting
+    is the wrong advice for a limit that resets at midnight.
+    """
+    try:
+        UsageService(db).check(organization_id)
+    except DailyBudgetExceededError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=(
+                "This workspace has used its daily AI budget "
+                f"({exc.used:,} of {exc.limit:,} tokens). It resets at midnight UTC."
+            ),
+        )
 
 
 def require_organization_member(

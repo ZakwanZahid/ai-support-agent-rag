@@ -17,6 +17,7 @@ from app.api.deps import (
 )
 from app.core.config import settings
 from app.core.rate_limit import InMemoryRateLimitBackend
+from app.observability.logging import configure_logging
 from app.documents.preparation import prepare_document
 from app.embeddings.indexing import index_document
 from app.main import app
@@ -28,6 +29,7 @@ from app.models.knowledge_base import KnowledgeBase
 from app.models.organization import Organization, OrganizationMember
 from app.models.user import User
 from app.models.types import Vector
+from app.models.usage import OrganizationUsageDay
 
 
 class FakeEmbeddingProvider:
@@ -54,6 +56,12 @@ class FakeChatProvider:
         assert "Use only the context" in system_prompt
         assert "[source 1]" in user_prompt
         return "Customers can request a refund within 14 days of purchase."
+
+
+# Importing the app configures INFO-level JSON logging, which turns a test
+# run into thousands of request lines. The formatter is tested directly in
+# test_observability.py; here it only needs to be out of the way.
+configure_logging(level="WARNING", as_json=False)
 
 
 @compiles(JSONB, "sqlite")
@@ -85,6 +93,8 @@ def _enforce_sqlite_foreign_keys(dbapi_connection, _record):
     cursor = dbapi_connection.cursor()
     cursor.execute("PRAGMA foreign_keys=ON")
     cursor.close()
+
+
 TestingSessionLocal = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
 test_tables = [
     User.__table__,
@@ -96,6 +106,7 @@ test_tables = [
     Conversation.__table__,
     Message.__table__,
     MessageCitation.__table__,
+    OrganizationUsageDay.__table__,
 ]
 
 
@@ -136,6 +147,11 @@ def temporary_upload_directory(tmp_path):
     original_rate_limit_enabled = settings.rate_limit_enabled
     original_auth_max = settings.rate_limit_auth_max_requests
     original_chat_max = settings.rate_limit_chat_max_requests
+    original_budget_enabled = settings.daily_budget_enabled
+    original_budget = settings.daily_token_budget
+    # Same reasoning as the rate limits: the check stays on so it is genuinely
+    # exercised, with the ceiling lifted out of every other test's way.
+    settings.daily_token_budget = 100_000_000
     # Limiting stays on so the dependency is genuinely exercised, but the
     # ceilings are lifted out of the way. A test that cares about the limit
     # lowers them itself; every other test would otherwise be one refactor
@@ -166,6 +182,8 @@ def temporary_upload_directory(tmp_path):
         settings.rate_limit_enabled = original_rate_limit_enabled
         settings.rate_limit_auth_max_requests = original_auth_max
         settings.rate_limit_chat_max_requests = original_chat_max
+        settings.daily_budget_enabled = original_budget_enabled
+        settings.daily_token_budget = original_budget
 
 
 @pytest.fixture

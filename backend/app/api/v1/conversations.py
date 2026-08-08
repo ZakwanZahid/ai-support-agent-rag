@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import (
     enforce_chat_rate_limit,
+    enforce_daily_budget,
     get_current_user,
     get_db,
     get_request_chat_provider,
@@ -130,8 +131,9 @@ def get_conversation(
     "/{conversation_id}/messages",
     response_model=ChatMessageResponse,
     # The one uncapped spend path in the API: every message is an embedding
-    # call plus a completion.
-    dependencies=[Depends(enforce_chat_rate_limit)],
+    # call plus a completion. Two controls, not one: the rate limit bounds a
+    # burst, the budget bounds a day.
+    dependencies=[Depends(enforce_chat_rate_limit), Depends(enforce_daily_budget)],
 )
 def send_chat_message(
     organization_id: uuid.UUID,

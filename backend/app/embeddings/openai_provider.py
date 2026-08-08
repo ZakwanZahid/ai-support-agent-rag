@@ -5,6 +5,7 @@ from app.embeddings.provider import (
     EmbeddingConfigurationError,
     EmbeddingDimensionError,
 )
+from app.observability.usage import record_embedding_usage
 
 
 class OpenAIEmbeddingProvider:
@@ -26,6 +27,13 @@ class OpenAIEmbeddingProvider:
             input=texts,
             dimensions=self.dimensions,
         )
+        usage = getattr(response, "usage", None)
+        if usage is not None:
+            record_embedding_usage(
+                model=getattr(response, "model", self.model),
+                tokens=usage.total_tokens or 0,
+            )
+
         ordered = sorted(response.data, key=lambda item: item.index)
         embeddings = [item.embedding for item in ordered]
         if len(embeddings) != len(texts):
