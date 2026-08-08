@@ -1,21 +1,21 @@
 # Session handoff — SupportMind
 
-Written 6 Aug 2026, updated 7 Aug at the end of Phase 15. Delete this file once Phase 18 ships;
+Written 6 Aug 2026, updated 8 Aug at the end of Phase 17. Delete this file once Phase 18 ships;
 it is working state, not project documentation.
 
 ## Where things stand
 
-`main` has phases 13, 14 and 15 merged, unpushed. Branches are **kept after merging** now, not
+`main` has phases 13, 14, 15 and 17 merged, unpushed. Branches are **kept after merging** now, not
 deleted: `security-hardening`, `resource-deletion`, `pagination-and-search`,
-`retrieval-eval-harness`, `hybrid-retrieval`.
+`retrieval-eval-harness`, `hybrid-retrieval`, `structured-logging`, `usage-and-cost-caps`.
 
 | | |
 | --- | --- |
-| Backend tests | 150 (pytest) — 141 on SQLite, 9 need Postgres |
+| Backend tests | 187 (pytest) — 178 on SQLite, 9 need Postgres |
 | Frontend tests | 52 (Vitest) + 1 Playwright flow |
-| ADRs | 43 |
-| Phases complete | 1–15, plus 11b (CI) |
-| Next | Phase 17 |
+| ADRs | 45 |
+| Phases complete | 1–15 and 17, plus 11b (CI) |
+| Next | Phase 18 — deploy |
 
 ## The plan being followed
 
@@ -24,7 +24,7 @@ defines phases 11–18, their priorities, and a per-phase learning workflow: wri
 `docs/learning-notes/phase-N.md`, then explain in chat what was actually understood versus executed
 from a spec, before moving on.
 
-Remaining: **17** observability and cost caps → **18** deploy.
+Remaining: **18** deploy — and it is the last one.
 
 **Phase 16 (LangGraph agent layer) is skipped** by the user's decision. The README's "what I'd build
 next" already says so; keep it that way rather than letting it read as an oversight.
@@ -100,6 +100,23 @@ preparation time, so existing documents keep whole-document chunks with no headi
 they are prepared again with `force`. New uploads get the new chunker automatically. Nothing is
 broken by the mix — hybrid search handles both — but a before/after comparison in the running app
 needs a re-prepare first.
+
+## Phase 17, as built
+
+Two branches, both merged and kept: `structured-logging`, then `usage-and-cost-caps`. The CI item
+was already delivered in 11b, so this phase was logging, error reporting and the cost cap.
+
+- **JSON logs** with a request id on every line, reused from an inbound `X-Request-Id` and returned
+  on the response. Credentials redacted by key in the formatter. Uvicorn's access log is silenced
+  because the middleware already logs the same event with more in it. ADR-044.
+- **Error reporting wired and off** — no DSN, no account, no dependency. `before_send` already
+  strips `Authorization` and cookies.
+- **Per-organization daily token budget**, metered from the provider's own `usage` field. Stored in
+  Postgres, upserted with the addition done in SQL. `GET /organizations/{id}/usage` shows spend and
+  what is left. ADR-045.
+
+Verified live: one real chat recorded 6 embedding + 877 prompt + 50 completion tokens at an
+estimated $0.000162, and a lowered budget refused the next one with a 429 naming the daily limit.
 
 `price-dropped-after-buying` is the one question still failing. Left as a known gap rather than
 tuned away, since fitting a constant to one question in 57 is how an eval starts lying.

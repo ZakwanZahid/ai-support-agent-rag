@@ -319,3 +319,33 @@ Chunking now splits on markdown headings rather than on a character count, and e
 Final against baseline: recall@k 0.9528 → 0.9811, precision@k 0.2189 → 0.3283, hit rate 0.9623 → 0.9811, MRR 0.8899 → 0.8805. The MRR cost is accepted knowingly: more chunks compete for rank one, and everything retrieved reaches the model anyway, so recall is worth more than rank here.
 
 The full-text column is `GENERATED ALWAYS AS ... STORED` so Postgres maintains it; a trigger or an application write is one more thing to forget on an update path. It uses the `english` configuration, which is a limitation to name rather than hide — a non-English corpus needs a different one. Citations are deduplicated to one entry per document, because several chunks of one source became a common result once sections were chunked separately and listing them read as several sources; the context the model answers from still receives every chunk.
+
+## ADR-044: JSON Logs, One Line Per Request, With an Id That Ties Them Together
+
+Status: Accepted
+
+Logs are one JSON object per line, formatted at the root handler so that uvicorn and SQLAlchemy match the application's own output. Human-readable prose is better on a laptop and worse everywhere else: once logs are shipped somewhere, grepping prose is how a team ends up unable to answer "which organization saw errors last night". A pipeline containing two formats is a pipeline where one of them goes unparsed.
+
+Every line carries a request id, taken from an inbound `X-Request-Id` when present so a trace started by a load balancer survives the hop, and returned on the response so a user can quote it from a failure. The id lives in a context variable rather than being threaded through function signatures — the same mechanism as the tenant scope in ADR-038, with the same acknowledged cost of being invisible at the call site. Background jobs establish their own context keyed on the job id, since a context variable does not cross into a worker process. The organization is attached by middleware and the user after the token is validated, because before that there is nothing trustworthy to say.
+
+Uvicorn's access log is silenced rather than reformatted. The middleware already logs the same event with the method, path, status, duration and request id on it; leaving both enabled prints every request twice, once with less information.
+
+Sensitive keys are redacted by name wherever they appear, including nested, regardless of what a caller passes. A credential in a log line is a credential in every system the logs reach, and log retention routinely outlives the credential.
+
+Error reporting is wired and disabled: no DSN, no account, no dependency. The decision worth making now is what gets scrubbed before an event leaves the process, and that belongs with the code that knows which fields are sensitive — not with whoever later pastes in a DSN and discovers tokens in their error tracker.
+
+## ADR-045: A Daily Token Budget, Metered From What The Provider Charged
+
+Status: Accepted
+
+Each organization has a daily token budget, checked before chat and recorded after every call that spends anything. This is the second half of ADR-037: a per-minute rate limit bounds a burst and says nothing about a day, and twenty messages a minute is nearly thirty thousand a day.
+
+**Metered on tokens reported by the provider.** Not a local tokenizer, which would be an estimate — and an estimate of a bill is a second source of truth that drifts from the real one, which is the worst possible property for the number a spending limit is enforced against. Not on request count either: one question against a full context costs many times another. Cost in dollars is derived and labelled an estimate everywhere it appears, and the cap is deliberately *not* enforced on it, so that a stale price table cannot silently move the limit.
+
+**Providers report into a context-scoped accumulator** rather than returning usage alongside their result. Returning it would change the signature of every provider, every fake in the test suite, and every caller, none of which has any other interest in billing. Recording outside a tracked scope is a no-op rather than an error, so a provider used from a script or the eval harness does not fail because nothing is counting.
+
+**Stored in Postgres, and this is the sharpest contrast with the rate limiter.** That one lives in Redis and fails open, because a limiter outage should not become a login outage. This one counts money: a spending record that evaporates when a cache restarts is not a record, and it is the row an invoice dispute would be settled from. Writes are an upsert that adds in SQL rather than a read-modify-write, because two requests finishing together would both read the same starting figure and one would overwrite the other's addition — losing spend, the one direction an accounting error must not go. The table is stored at daily grain, not as a ledger of calls: the daily figure is what the cap is enforced against, and a row per call would put a write on the hottest path in the application to answer questions nobody is asking.
+
+Recording happens in a `finally`, so a question that retrieved nothing still pays for embedding itself, and a completion the provider billed for before failing is still counted — a meter that only counts happy paths under-reports exactly when things are going wrong. It never raises into the caller: the answer has already been delivered, and losing the meter must not undo it. The failure is logged loudly instead, because silently uncounted spend is how a cap stops working without anyone noticing.
+
+The check is against committed usage, so a request that starts just under the limit may finish over it. That is the same overshoot a fixed rate-limit window has and is accepted for the same reason: the alternative is reserving tokens before knowing how many the call will use, which means estimating. Zero means "no budget configured" rather than "no tokens allowed", because the opposite reading turns an unset value into a total outage. The `429` says the budget is daily and when it resets — "try again shortly" is wrong advice for a limit that clears at midnight — and usage is readable by any member, since a limit people cannot see arrives as an unexplained error.

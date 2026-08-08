@@ -5,7 +5,7 @@
 A multi-tenant RAG application: FastAPI and Postgres/pgvector behind a Next.js product surface that never asks the user to understand retrieval, embeddings, or indexing.
 
 [![CI](https://github.com/ZakwanZahid/ai-support-agent-rag/actions/workflows/ci.yml/badge.svg)](https://github.com/ZakwanZahid/ai-support-agent-rag/actions/workflows/ci.yml)
-![Backend tests](https://img.shields.io/badge/backend-150%20tests-brightgreen)
+![Backend tests](https://img.shields.io/badge/backend-187%20tests-brightgreen)
 ![Frontend tests](https://img.shields.io/badge/frontend-52%20tests-brightgreen)
 ![E2E](https://img.shields.io/badge/e2e-1%20flow%20(manual)-blue)
 
@@ -136,7 +136,8 @@ Answers are assembled the same way every time: embed the question, retrieve the 
 | Models | OpenAI `text-embedding-3-small`, `gpt-4o-mini`, behind provider interfaces |
 | Queue | Redis + RQ for durable document preparation |
 | Retrieval | pgvector + Postgres full-text, fused by reciprocal rank |
-| Tests | pytest (150) · Vitest (52) · Playwright (1 end-to-end flow) |
+| Observability | JSON logs with request correlation, per-organization token metering |
+| Tests | pytest (187) · Vitest (52) · Playwright (1 end-to-end flow) |
 
 ## Key engineering decisions
 
@@ -147,6 +148,8 @@ Answers are assembled the same way every time: embed the question, retrieve the 
 **Aggregate counts, not N+1.** Knowledge bases return `document_count`/`ready_document_count`; conversations return `message_count`/`last_message_preview`. Grouped and correlated subqueries, so a list is one round trip regardless of length — instead of the client fetching every child row to count it. See ADR-031.
 
 **Tenant scoping is a dependency, not a convention.** `require_organization_member` and `require_role` run before any service. A missing workspace and a workspace you don't belong to both return `404`, so membership isn't discoverable by probing.
+
+**Spend is metered from what the provider charged.** Token counts come from OpenAI's own `usage` field, never a local tokenizer — an estimate of a bill is a second source of truth that drifts from the real one. A daily per-organization budget complements the per-minute rate limit: one bounds a burst, the other bounds a day. Stored in Postgres rather than Redis, which is the opposite call from the rate limiter and deliberately so — that one counts bursts and may fail open, this one counts money. See ADR-045.
 
 **Retrieval changes are measured, not argued.** An [evaluation harness](backend/eval/) indexes a fixed corpus, asks a fixed question set, and scores which documents came back — questions tagged by kind, so a change that helps direct lookups and hurts paraphrases cannot hide behind an average. It corrected the plan twice: structure-aware chunking broke two literal-token questions, and hybrid retrieval measured alone did nothing at all. Together: recall@k 0.9528 → 0.9811, precision 0.2189 → 0.3283. See ADR-042 and ADR-043.
 
@@ -186,7 +189,10 @@ Stated rather than hidden. The full list with severities is in [docs/10-frontend
 - Answers don't stream
 
 **Engineering**
-- No structured logging, metrics, or error reporting
+- Every request logs at INFO, which is the largest thing the system produces at real traffic; sampling needs traffic figures that don't exist yet (ADR-044)
+- Usage is stored at daily grain, so it can show a workspace spent a lot but not that it spent it in four minutes
+- The cost cap is per workspace, so one member can exhaust it for everyone
+- No metrics or tracing; request duration is in the logs and nothing aggregates it
 - The end-to-end test runs on demand rather than on every push, so a regression only it would catch can reach `main`
 - Unit coverage is 7% overall by design — see the testing note below
 
@@ -196,14 +202,14 @@ The strategy is deliberate rather than uniform: unit-test the modules whose corr
 
 | Suite | Count | What it covers |
 | --- | --- | --- |
-| pytest | 150 | Auth, tenancy, upload, ingestion, indexing, search, RAG chat, preparation, aggregates, workspace settings, queue claims and sweep, rate limiting, row-level security, deletion, pagination, chunking, rank fusion, eval scoring |
+| pytest | 187 | Auth, tenancy, upload, ingestion, indexing, search, RAG chat, preparation, aggregates, workspace settings, queue claims and sweep, rate limiting, row-level security, deletion, pagination, chunking, rank fusion, eval scoring, logging redaction, usage metering, cost caps |
 | Vitest | 52 | `terminology.ts` (100%), `api/client.ts` (91%), `StatusBadge` (100%), `ConfirmDeleteDialog` |
 | Playwright | 1 flow | Signup → onboarding → upload → prepare → ask → sourced answer |
 
 Overall unit coverage is ~7% because components and hooks are not unit-tested. Inflating that number by testing presentational markup would cost real time and prove little; the flow those components participate in is covered by the end-to-end spec instead. The end-to-end test also asserts the negative case that matters most — that no API vocabulary or UUID ever reaches the screen.
 
 ```bash
-cd backend && pytest              # 141 tests; 9 more with Postgres, below
+cd backend && pytest              # 178 tests; 9 more with Postgres, below
 cd frontend && npm test           # 52 unit tests
 cd frontend && npm run test:e2e   # end-to-end (needs backend + OpenAI key)
 ```
