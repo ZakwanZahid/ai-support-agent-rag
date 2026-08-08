@@ -1,5 +1,6 @@
 import { Sparkles } from "lucide-react";
 
+import { MarkdownAnswer } from "@/components/chat/markdown-answer";
 import { SourceCard } from "@/components/chat/source-card";
 import { cn } from "@/lib/utils";
 import type { ChatMessage as ChatMessageModel } from "@/types/conversation";
@@ -66,9 +67,7 @@ export function ChatMessage({
             ))}
           </p>
         ) : (
-          <div className="whitespace-pre-wrap break-words text-sm leading-7 text-foreground">
-            {message.content}
-          </div>
+          <MarkdownAnswer className="break-words" content={message.content} />
         )}
 
         {!pending && sources.length > 0 && !hideInlineSources ? (

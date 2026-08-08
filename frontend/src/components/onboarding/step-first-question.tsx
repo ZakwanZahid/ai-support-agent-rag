@@ -4,6 +4,7 @@ import { useMutation } from "@tanstack/react-query";
 import { ArrowRight, FileText, LoaderCircle, Send } from "lucide-react";
 import { useState } from "react";
 
+import { MarkdownAnswer } from "@/components/chat/markdown-answer";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -117,7 +118,7 @@ export function StepFirstQuestion({
 
       {answer ? (
         <div className="mt-6 rounded-lg border border-border bg-surface p-5">
-          <p className="text-sm leading-6 text-foreground">{answer.answer}</p>
+          <MarkdownAnswer content={answer.answer} />
 
           {answer.citations.length > 0 ? (
             <div className="mt-5">
