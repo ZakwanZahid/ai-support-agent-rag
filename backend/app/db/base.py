@@ -3,6 +3,7 @@ from app.models.conversation import Conversation, Message, MessageCitation, Mess
 from app.models.document import Document, DocumentChunk
 from app.models.knowledge_base import KnowledgeBase
 from app.models.organization import Organization, OrganizationMember
+from app.models.usage import OrganizationUsageDay
 from app.models.user import User
 
 __all__ = [
@@ -16,6 +17,7 @@ __all__ = [
     "MessageFeedback",
     "Organization",
     "OrganizationMember",
+    "OrganizationUsageDay",
     "User",
 ]
 

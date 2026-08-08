@@ -117,6 +117,18 @@ class Settings(BaseSettings):
         alias="RATE_LIMIT_CHAT_WINDOW_SECONDS",
         gt=0,
     )
+    # The daily half of the spending controls. Rate limiting bounds a burst;
+    # this bounds a day, which a per-minute limit does not: twenty messages a
+    # minute is nearly thirty thousand a day.
+    daily_budget_enabled: bool = Field(default=True, alias="DAILY_BUDGET_ENABLED")
+    # Counted in tokens because tokens are what the provider reports. A cap on
+    # requests would treat a one-line question and a full-context one alike;
+    # a cap on estimated cost would move whenever the price table went stale.
+    daily_token_budget: int = Field(
+        default=1_000_000,
+        alias="DAILY_TOKEN_BUDGET",
+        ge=0,
+    )
     openai_api_key: str | None = Field(default=None, alias="OPENAI_API_KEY")
     embedding_provider: str = Field(default="openai", alias="EMBEDDING_PROVIDER")
     embedding_model: str = Field(

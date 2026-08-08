@@ -8,10 +8,12 @@ from app.core.config import settings
 from app.db.session import SessionLocal
 from app.db.tenancy import organization_scope
 from app.observability.context import request_context, set_actor
+from app.observability.usage import track_usage
 from app.documents.preparation import prepare_document
 from app.ingestion.loaders import TextExtractionError
 from app.jobs.claims import claim_document, mark_failed, release_document
 from app.models.document import Document
+from app.services.usage_service import UsageService
 
 
 logger = logging.getLogger(__name__)
@@ -72,14 +74,22 @@ def prepare_document_job(
     # standing in for the request id an API call would have.
     with organization_scope(organization_id), request_context(job_id):
         set_actor(organization_id=organization_id, document_id=document_id)
-        return _run(
-            document_uuid,
-            organization_uuid,
-            force,
-            job_id=job_id,
-            session_factory=session_factory,
-            prepare=prepare,
-        )
+        # Indexing a document is the other real spend path, and a large upload
+        # can cost more than a day of chat. Counting it here means the budget
+        # reflects everything billed to the organization, not just the part a
+        # user watched happen.
+        with track_usage() as usage:
+            try:
+                return _run(
+                    document_uuid,
+                    organization_uuid,
+                    force,
+                    job_id=job_id,
+                    session_factory=session_factory,
+                    prepare=prepare,
+                )
+            finally:
+                _record_usage(organization_uuid, usage, session_factory)
 
 
 def _run(
@@ -180,5 +190,21 @@ def _run(
         )
         document = db.get(Document, document_uuid)
         return f"completed: {document.status if document else 'unknown'}"
+    finally:
+        db.close()
+
+
+def _record_usage(organization_id, usage, session_factory) -> None:
+    """Persist a job's spend on its own session.
+
+    The job closes its session between steps, so there is no open one to
+    borrow here. Failures are swallowed by `UsageService.record`; the work is
+    already done and losing the meter must not fail the job.
+    """
+    if usage.total_tokens == 0:
+        return
+    db = session_factory()
+    try:
+        UsageService(db).record(organization_id, usage)
     finally:
         db.close()

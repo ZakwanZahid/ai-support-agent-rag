@@ -23,10 +23,12 @@ from app.schemas.conversation import (
     ChatMessageResponse,
     CitationResponse,
 )
+from app.observability.usage import track_usage
 from app.services.conversation_service import (
     ConversationAccessDeniedError,
     ConversationService,
 )
+from app.services.usage_service import UsageService
 
 
 NO_CONTEXT_ANSWER = (
@@ -113,6 +115,33 @@ class RAGService:
         self.db.commit()
         self.db.refresh(user_message)
 
+        # Everything the providers spend from here on is counted against this
+        # organization's daily budget. The scope covers the embedding and the
+        # completion together, because a question costs both.
+        with track_usage() as usage:
+            try:
+                return self._answer(
+                    organization_id=organization_id,
+                    conversation=conversation,
+                    user_message=user_message,
+                    data=data,
+                )
+            finally:
+                # In `finally` so every exit is counted. A question that
+                # retrieved nothing still paid to embed itself, and a
+                # completion that failed after the provider billed for it is
+                # spend either way — a meter that only counts happy paths
+                # under-reports exactly when things are going wrong.
+                UsageService(self.db).record(organization_id, usage)
+
+    def _answer(
+        self,
+        *,
+        organization_id: uuid.UUID,
+        conversation,
+        user_message,
+        data: ChatMessageRequest,
+    ) -> ChatMessageResponse:
         query_embedding = self.embedding_provider.embed_query(data.question)
         if len(query_embedding) != self.settings.embedding_dimensions:
             raise ValueError(
