@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.db.session import SessionLocal
 from app.db.tenancy import organization_scope
+from app.observability.context import request_context, set_actor
 from app.documents.preparation import prepare_document
 from app.ingestion.loaders import TextExtractionError
 from app.jobs.claims import claim_document, mark_failed, release_document
@@ -67,7 +68,10 @@ def prepare_document_job(
 
     # A job has no request to inherit a tenant scope from, so it declares its
     # own. Without this every query it makes would be refused by the policies.
-    with organization_scope(organization_id):
+    # Same for the log context: the job id is what ties its lines together,
+    # standing in for the request id an API call would have.
+    with organization_scope(organization_id), request_context(job_id):
+        set_actor(organization_id=organization_id, document_id=document_id)
         return _run(
             document_uuid,
             organization_uuid,

@@ -17,12 +17,14 @@ from rq.timeouts import TimerDeathPenalty
 
 from app.core.config import settings
 from app.jobs.queue import get_preparation_queue, get_redis
+from app.observability.errors import configure_error_reporting
+from app.observability.logging import configure_logging
 
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s %(levelname)s %(name)s %(message)s",
-)
+# The same JSON format as the API. A worker whose logs are shaped differently
+# from the API's is a worker whose logs get parsed separately, or not at all.
+configure_logging(level=settings.log_level, as_json=settings.log_json)
+configure_error_reporting()
 logger = logging.getLogger("worker")
 
 

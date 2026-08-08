@@ -15,6 +15,7 @@ from app.core.rate_limit import (
     build_key,
 )
 from app.core.security import decode_access_token
+from app.observability.context import set_actor
 from app.db.session import get_db as session_get_db
 from app.documents.preparation import prepare_document
 from app.ingestion.pipeline import ingest_document
@@ -174,6 +175,11 @@ def get_current_user(
     user = UserRepository(db).get_by_id(user_id)
     if user is None or not user.is_active:
         raise unauthorized
+
+    # Added once the token has been validated, so every later log line for
+    # this request says who it was for. Before this point there is nothing
+    # trustworthy to say.
+    set_actor(user_id=str(user.id))
     return user
 
 
