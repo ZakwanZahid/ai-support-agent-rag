@@ -10,6 +10,11 @@ class Settings(BaseSettings):
     app_env: str = Field(default="local", alias="APP_ENV")
     debug: bool = Field(default=False, alias="DEBUG")
     api_v1_prefix: str = Field(default="/api/v1", alias="API_V1_PREFIX")
+    # Comma-separated. Render gives the frontend a `*.onrender.com` URL and a
+    # custom domain can be added later without a redeploy of the backend, so
+    # this is a list from the start rather than upgraded to one under
+    # pressure. `FRONTEND_ORIGIN` (singular) still works — one value is a
+    # one-item list.
     frontend_origin: str = Field(
         default="http://localhost:3000",
         alias="FRONTEND_ORIGIN",
@@ -173,12 +178,45 @@ class Settings(BaseSettings):
             return parsed[:retries]
         return parsed + [parsed[-1]] * (retries - len(parsed))
 
+    @property
+    def is_local_env(self) -> bool:
+        return self.app_env.strip().lower() in {"local", "development", "dev"}
+
+    @property
+    def frontend_origins(self) -> list[str]:
+        """`FRONTEND_ORIGIN` split on commas, so one deployment can name
+        several allowed origins — a Render preview URL, a custom domain,
+        `localhost` for a developer testing against the deployed API."""
+        return [
+            origin.strip()
+            for origin in self.frontend_origin.split(",")
+            if origin.strip()
+        ]
+
     @model_validator(mode="after")
     def validate_chunk_settings(self) -> "Settings":
         if self.chunk_overlap >= self.chunk_size:
             raise ValueError("CHUNK_OVERLAP must be smaller than CHUNK_SIZE")
         self.embedding_provider = self.embedding_provider.strip().lower()
         self.chat_provider = self.chat_provider.strip().lower()
+        return self
+
+    @model_validator(mode="after")
+    def validate_cors_is_configured_outside_local(self) -> "Settings":
+        """A deployed API with no allowed origin is a backend nobody's
+        frontend can reach — and the previous version of this check made that
+        failure silent: CORS simply never registered outside `local`-looking
+        environments, so the browser blocked every request and the server
+        logs showed nothing wrong. Failing at startup instead means the gap
+        is caught before the first user hits it, not after.
+        """
+        if not self.is_local_env and not self.frontend_origins:
+            raise ValueError(
+                "FRONTEND_ORIGIN must be set to at least one origin when "
+                f"APP_ENV={self.app_env!r} is not a local environment. "
+                "Without it, CORS blocks every request from the deployed "
+                "frontend."
+            )
         return self
 
     model_config = SettingsConfigDict(

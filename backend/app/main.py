@@ -37,6 +37,7 @@ async def lifespan(_app: FastAPI):
             "row_level_security": "enforced" if enforced else "bypassed",
             "error_reporting": "on" if reporting_enabled else "off",
             "rate_limiting": "on" if settings.rate_limit_enabled else "off",
+            "cors_origins": settings.frontend_origins,
         },
     )
     yield
@@ -57,14 +58,20 @@ def create_app() -> FastAPI:
     # exist before anything the scope middleware might log.
     app.add_middleware(RequestLoggingMiddleware)
 
-    if settings.app_env.lower() in {"local", "development", "dev"}:
-        app.add_middleware(
-            CORSMiddleware,
-            allow_origins=[settings.frontend_origin],
-            allow_credentials=False,
-            allow_methods=["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
-            allow_headers=["Authorization", "Content-Type"],
-        )
+    # Registered unconditionally now. It used to register only when APP_ENV
+    # looked local, which meant a deployed frontend was blocked by the
+    # browser with nothing in the server logs to explain why — the request
+    # never reached FastAPI's routing, so nothing here ever ran to log it.
+    # `Settings.validate_cors_is_configured_outside_local` is the other half
+    # of the fix: it fails at startup if a non-local deployment forgot to set
+    # FRONTEND_ORIGIN, rather than failing silently in the browser later.
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=settings.frontend_origins,
+        allow_credentials=False,
+        allow_methods=["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
+        allow_headers=["Authorization", "Content-Type"],
+    )
 
     app.include_router(api_router)
 
