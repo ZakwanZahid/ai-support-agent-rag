@@ -81,6 +81,14 @@ class Settings(BaseSettings):
         alias="PREPARATION_JOB_TIMEOUT_SECONDS",
         gt=0,
     )
+    log_level: str = Field(default="INFO", alias="LOG_LEVEL")
+    # JSON in every environment that ships its logs somewhere, plain text on a
+    # laptop where a human is reading them directly.
+    log_json: bool = Field(default=True, alias="LOG_JSON")
+    # Unset means error reporting is wired but off. Nothing here requires an
+    # account to exist.
+    sentry_dsn: str | None = Field(default=None, alias="SENTRY_DSN")
+
     # Rate limiting. Disabling it is for tests and for local work where a
     # reload loop would otherwise lock you out of your own login form.
     rate_limit_enabled: bool = Field(default=True, alias="RATE_LIMIT_ENABLED")
